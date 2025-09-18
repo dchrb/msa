@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1012062066863",
+    "project_id": "misaludactiva-21760",
+    "storage_bucket": "misaludactiva-21760.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1012062066863:android:23ea3447067e3b44d49c5a",
+        "android_client_info": {
+          "package_name": "com.example.msa"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCdvzKB_ipxE1nta4PynESXeFu1wrMm5Tc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
