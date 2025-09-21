@@ -1,8 +1,4 @@
-// lib/pantallas/menu_del_dia.dart
-
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import 'package:msa/models/plato.dart';
 import 'package:msa/providers/dieta_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:msa/models/comida_planificada.dart';
@@ -25,9 +21,12 @@ class MenuDelDia extends StatelessWidget {
           const Text('Menú para hoy', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           if (menuDeHoy.isEmpty)
-            const Center(child: Text('No tienes comidas planeadas para hoy.'))
+            const Center(child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 32.0),
+              child: Text('No tienes comidas planeadas para hoy.'),
+            ))
           else
-            ...menuDeHoy.map((comida) => _buildComidaCard(context, comida)).toList(),
+            ...menuDeHoy.map((comida) => _buildComidaCard(context, comida)),
         ],
       ),
     );
@@ -42,8 +41,7 @@ class MenuDelDia extends StatelessWidget {
         subtitle: Text(comida.nombre),
         value: comida.completado,
         onChanged: (bool? newValue) {
-          context.read<DietaProvider>().marcarComidaComoCompletada(
-              DateTime.now().weekday, comida.id, newValue ?? false);
+          context.read<DietaProvider>().marcarComidaComoCompletada(comida.id, newValue ?? false);
           
           if (newValue == true) {
             ScaffoldMessenger.of(context).showSnackBar(

@@ -1,16 +1,14 @@
 plugins {
-    id "com.android.application"
-    id "kotlin-android"
-    id "dev.flutter.flutter-gradle-plugin"
-    // NUEVA LÍNEA: Agrega el plugin de Google Services aquí
-    id "com.google.gms.google-services"
+    id("com.android.application")
+    id("kotlin-android")
+    id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
 }
 
 android {
     namespace = "com.example.msa"
     compileSdk = flutter.compileSdkVersion
     compileOptions {
-        // Habilita el "traductor" (desugaring)
         isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
@@ -21,34 +19,40 @@ android {
     }
 
     sourceSets {
-        main.java.srcDirs += 'src/main/kotlin'
+        getByName("main").java.srcDirs("src/main/java", "src/main/kotlin")
     }
 
     defaultConfig {
-        applicationId "com.example.msa"
-        minSdk flutter.minSdkVersion
-        targetSdk flutter.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        applicationId = "com.example.msa"
+        minSdk = flutter.minSdkVersion
+        targetSdk = flutter.targetSdkVersion
+        versionCode = 1
+        versionName = "1.0"
+    }
+
+    signingConfigs {
+        create("release") {
+            // Aquí deberás configurar tu clave de firma
+            // Por ahora, lo dejamos vacío para evitar errores de compilación
+        }
     }
 
     buildTypes {
         release {
-            signingConfig signingConfigs.debug
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }
 
 flutter {
-    source "../.."
+    source = "../.."
 }
 
 dependencies {
-    // La dependencia del "traductor"
-    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.0.4"
-    // NUEVA LÍNEA: Agrega la plataforma de Firebase
-    implementation platform("com.google.firebase:firebase-bom:32.7.4")
-    // NUEVA LÍNEA: Agrega las dependencias de Firebase
-    implementation "com.google.firebase:firebase-analytics"
-    implementation "com.google.firebase:firebase-messaging"
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    implementation(platform("com.google.firebase:firebase-bom:32.8.0"))
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-messaging")
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
 }

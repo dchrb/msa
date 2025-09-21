@@ -19,38 +19,23 @@ class MedidaAdapter extends TypeAdapter<Medida> {
     return Medida(
       id: fields[0] as String,
       fecha: fields[1] as DateTime,
-      peso: fields[2] as double,
-      altura: fields[3] as double,
-      pecho: fields[4] as double?,
-      brazo: fields[5] as double?,
-      cintura: fields[6] as double?,
-      caderas: fields[7] as double?,
-      muslo: fields[8] as double?,
+      tipo: fields[2] as String,
+      valor: fields[3] as double,
     );
   }
 
   @override
   void write(BinaryWriter writer, Medida obj) {
     writer
-      ..writeByte(9)
+      ..writeByte(4)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
       ..write(obj.fecha)
       ..writeByte(2)
-      ..write(obj.peso)
+      ..write(obj.tipo)
       ..writeByte(3)
-      ..write(obj.altura)
-      ..writeByte(4)
-      ..write(obj.pecho)
-      ..writeByte(5)
-      ..write(obj.brazo)
-      ..writeByte(6)
-      ..write(obj.cintura)
-      ..writeByte(7)
-      ..write(obj.caderas)
-      ..writeByte(8)
-      ..write(obj.muslo);
+      ..write(obj.valor);
   }
 
   @override

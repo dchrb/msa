@@ -1,16 +1,12 @@
-// lib/pantallas/pantalla_registro_sesion.dart
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:msa/models/ejercicio.dart';
 import 'package:msa/models/sesion_entrenamiento.dart';
 import 'package:msa/pantallas/pantalla_biblioteca_ejercicios.dart';
 import 'package:msa/providers/entrenamiento_provider.dart';
+import 'package:msa/providers/insignia_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
-import 'package:msa/providers/insignia_provider.dart';
-import 'package:msa/providers/water_provider.dart';
-import 'package:msa/providers/food_provider.dart';
 import 'package:msa/models/detalle_ejercicio.dart';
 import 'package:msa/models/serie.dart';
 
@@ -52,6 +48,51 @@ class _PantallaRegistroSesionState extends State<PantallaRegistroSesion> {
     }
   }
 
+  void _guardarSesion() {
+    if (_nombreController.text.isEmpty || _detallesEjercicio.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor, pon un nombre y añade al menos un ejercicio.')),
+      );
+      return;
+    }
+
+    final entrenamientoProvider = context.read<EntrenamientoProvider>();
+    late SesionEntrenamiento sesionGuardada;
+    
+    if (_isEditing) {
+      sesionGuardada = SesionEntrenamiento(
+        id: widget.sesionAEditar!.id,
+        nombre: _nombreController.text,
+        fecha: _fechaSeleccionada,
+        detalles: _detallesEjercicio,
+      );
+      entrenamientoProvider.editarSesion(sesionGuardada);
+    } else {
+      sesionGuardada = SesionEntrenamiento(
+        id: const Uuid().v4(),
+        nombre: _nombreController.text,
+        fecha: _fechaSeleccionada,
+        detalles: _detallesEjercicio,
+      );
+      entrenamientoProvider.agregarSesion(sesionGuardada);
+    }
+
+    // -- DISPARAR LÓGICA DE GAMIFICACIÓN --
+    final insigniaProvider = context.read<InsigniaProvider>();
+    insigniaProvider.verificarInsigniasPorActividad(sesionGuardada);
+    // ----------------------------------------
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('¡Entrenamiento ${_isEditing ? 'actualizado' : 'guardado'}!')),
+    );
+
+    if (_isEditing) {
+      Navigator.of(context)..pop()..pop(); // Vuelve dos pantallas atrás
+    } else {
+      Navigator.of(context).pop();
+    }
+  }
+
   Future<void> _navegarYSeleccionarEjercicio() async {
     final Ejercicio? ejercicioSeleccionado = await Navigator.push(
       context,
@@ -72,51 +113,6 @@ class _PantallaRegistroSesionState extends State<PantallaRegistroSesion> {
         _detallesEjercicio.add(nuevoDetalle);
         _ejerciciosAgregadosMap[ejercicioSeleccionado.id] = ejercicioSeleccionado;
       });
-    }
-  }
-
-  void _guardarSesion() {
-    if (_nombreController.text.isEmpty || _detallesEjercicio.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, pon un nombre y añade al menos un ejercicio.')),
-      );
-      return;
-    }
-
-    final provider = context.read<EntrenamientoProvider>();
-
-    if (_isEditing) {
-      final sesionActualizada = SesionEntrenamiento(
-        id: widget.sesionAEditar!.id,
-        nombre: _nombreController.text,
-        fecha: _fechaSeleccionada,
-        detalles: _detallesEjercicio,
-      );
-      provider.editarSesion(sesionActualizada);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('¡Entrenamiento actualizado!')),
-      );
-      Navigator.of(context)..pop()..pop();
-    } else {
-      final nuevaSesion = SesionEntrenamiento(
-        id: const Uuid().v4(),
-        nombre: _nombreController.text,
-        fecha: _fechaSeleccionada,
-        detalles: _detallesEjercicio,
-      );
-      provider.agregarSesion(nuevaSesion);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('¡Entrenamiento guardado con éxito!')),
-      );
-      
-      context.read<InsigniaProvider>().verificarHabitoTrio(
-        context,
-        context.read<WaterProvider>(),
-        context.read<FoodProvider>(),
-        context.read<EntrenamientoProvider>(),
-      );
-
-      Navigator.of(context).pop();
     }
   }
 
@@ -357,8 +353,7 @@ class _PantallaRegistroSesionState extends State<PantallaRegistroSesion> {
                     final serie = detalle.series[serieIndex];
                     return ListTile(
                       title: Text(
-                        'Serie ${serieIndex + 1}: ${serie.repeticiones} reps' +
-                            (serie.pesoKg != null ? ' x ${serie.pesoKg} kg' : ''),
+                        'Serie ${serieIndex + 1}: ${serie.repeticiones} reps${serie.pesoKg != null ? ' x ${serie.pesoKg} kg' : ''}',
                       ),
                       trailing: IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red),

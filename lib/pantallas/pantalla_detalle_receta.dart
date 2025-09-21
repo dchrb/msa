@@ -19,6 +19,7 @@ class PantallaDetalleReceta extends StatefulWidget {
 class _PantallaDetalleRecetaState extends State<PantallaDetalleReceta> {
   Map<String, dynamic>? _recetaCompleta;
   bool _isLoading = true;
+  String? _error; // --- NUEVO: Estado para manejar errores
 
   @override
   void initState() {
@@ -36,34 +37,34 @@ class _PantallaDetalleRecetaState extends State<PantallaDetalleReceta> {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        if (data['meals'] != null) {
+        if (data['meals'] != null && data['meals'].isNotEmpty) {
           final recetaSinTraducir = data['meals'][0];
+          // La traducción ahora puede lanzar una excepción, que será capturada
           final recetaTraducida = await dietaProvider.traducirDetallesReceta(recetaSinTraducir);
-          setState(() {
-            _recetaCompleta = recetaTraducida;
-            _isLoading = false;
-          });
+          if (mounted) {
+            setState(() {
+              _recetaCompleta = recetaTraducida;
+              _isLoading = false;
+            });
+          }
         } else {
-          setState(() {
-            _isLoading = false;
-          });
+          if (mounted) setState(() => _error = 'No se pudo encontrar la información completa de la receta.');
         }
       } else {
-        setState(() {
-          _isLoading = false;
-        });
+        if (mounted) setState(() => _error = 'Error del servidor al buscar la receta (Código: ${response.statusCode}).');
       }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) setState(() => _error = 'No se pudo cargar la receta. Revisa tu conexión a internet o la configuración de la API.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _launchUrl(String url) async {
     final Uri uri = Uri.parse(url);
     if (!await launchUrl(uri)) {
-      throw 'No se pudo abrir $url';
+      // Muestra un SnackBar si no se puede abrir la URL
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No se pudo abrir el video en $url')));
     }
   }
 
@@ -71,19 +72,28 @@ class _PantallaDetalleRecetaState extends State<PantallaDetalleReceta> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(
-          title: Text(widget.receta['strMeal'] ?? 'Cargando...'),
-        ),
+        appBar: AppBar(title: Text(widget.receta['strMeal'] ?? 'Cargando...')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
     
+    // --- MEJORADO: Mostrar mensaje de error específico ---
+    if (_error != null) {
+      return Scaffold(
+        appBar: AppBar(title: Text(widget.receta['strMeal'] ?? 'Error')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(_error!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: Colors.red)),
+          ),
+        ),
+      );
+    }
+
     if (_recetaCompleta == null) {
       return Scaffold(
-        appBar: AppBar(
-          title: Text(widget.receta['strMeal'] ?? 'Error'),
-        ),
-        body: const Center(child: Text('No se pudo cargar la información completa de la receta.')),
+        appBar: AppBar(title: Text(widget.receta['strMeal'] ?? 'Error')),
+        body: const Center(child: Text('Ocurrió un error inesperado al procesar la receta.')),
       );
     }
 
@@ -91,87 +101,45 @@ class _PantallaDetalleRecetaState extends State<PantallaDetalleReceta> {
     final String urlImagen = _recetaCompleta!['strMealThumb'] ?? '';
     final String urlYoutube = _recetaCompleta!['strYoutube'] ?? '';
     
-    List<String> _getIngredientes() {
+    List<String> getIngredientes() {
       List<String> ingredientes = [];
       for (int i = 1; i <= 20; i++) {
         final ingrediente = _recetaCompleta!['strIngredient$i'];
         final medida = _recetaCompleta!['strMeasure$i'];
         if (ingrediente != null && ingrediente.isNotEmpty && ingrediente.trim().isNotEmpty) {
-          ingredientes.add('$medida $ingrediente');
+          ingredientes.add('$medida $ingrediente'.trim());
         }
       }
       return ingredientes;
     }
     
-    final listaIngredientes = _getIngredientes();
+    final listaIngredientes = getIngredientes();
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(nombreReceta),
-      ),
+      appBar: AppBar(title: Text(nombreReceta)),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (urlImagen.isNotEmpty)
-              Image.network(
-                urlImagen,
-                fit: BoxFit.cover,
-                height: 250,
-                width: double.infinity,
-                errorBuilder: (context, error, stackTrace) {
-                  return const SizedBox(
-                    height: 250,
-                    child: Center(
-                      child: Icon(Icons.broken_image, size: 80, color: Colors.grey),
-                    ),
-                  );
-                },
-              ),
+            if (urlImagen.isNotEmpty) Image.network(urlImagen, fit: BoxFit.cover, height: 250, width: double.infinity, errorBuilder: (c, e, s) => const SizedBox(height: 250, child: Center(child: Icon(Icons.broken_image, size: 80, color: Colors.grey)))),
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    nombreReceta,
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
-                  ),
+                  Text(nombreReceta, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
                   const Divider(height: 32),
-                  Text(
-                    'Categoría: ${_recetaCompleta!['strCategory'] ?? 'N/A'}',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
+                  Text('Categoría: ${_recetaCompleta!['strCategory'] ?? 'N/A'}', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 16),
-                  Text(
-                    'Área: ${_recetaCompleta!['strArea'] ?? 'N/A'}',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
+                  Text('Área: ${_recetaCompleta!['strArea'] ?? 'N/A'}', style: Theme.of(context).textTheme.titleLarge),
                   const Divider(height: 32),
-                  Text(
-                    'Ingredientes',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
+                  Text('Ingredientes', style: Theme.of(context).textTheme.headlineSmall),
                   const SizedBox(height: 8),
-                  if (listaIngredientes.isEmpty)
-                    const Text('No hay ingredientes disponibles.')
-                  else
-                    ...listaIngredientes.map((ingrediente) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4.0),
-                      child: Text('• $ingrediente', style: const TextStyle(fontSize: 16)),
-                    )).toList(),
-                  
+                  if (listaIngredientes.isEmpty) const Text('No hay ingredientes disponibles.') else ...listaIngredientes.map((ingrediente) => Padding(padding: const EdgeInsets.symmetric(vertical: 4.0), child: Text('• $ingrediente', style: const TextStyle(fontSize: 16)))),
                   const Divider(height: 32),
-                  
-                  Text(
-                    'Instrucciones',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
+                  Text('Instrucciones', style: Theme.of(context).textTheme.headlineSmall),
                   const SizedBox(height: 8),
-                  Text(
-                    _recetaCompleta!['strInstructions'] ?? 'No hay instrucciones disponibles.',
-                    style: const TextStyle(fontSize: 16),
-                  ),
+                  Text(_recetaCompleta!['strInstructions'] ?? 'No hay instrucciones disponibles.', style: const TextStyle(fontSize: 16)),
                   if (urlYoutube.isNotEmpty) ...[
                     const SizedBox(height: 24),
                     Center(

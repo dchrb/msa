@@ -15,64 +15,7 @@ class PesoAlturaMedidas extends StatefulWidget {
 }
 
 class _PesoAlturaMedidasState extends State<PesoAlturaMedidas> {
-  final _pesoController = TextEditingController();
-  final _pechoController = TextEditingController();
-  final _brazoController = TextEditingController();
-  final _cinturaController = TextEditingController();
-  final _caderasController = TextEditingController();
-  final _musloController = TextEditingController();
-
   String _graficoSeleccionado = 'peso';
-  DateTime? _fechaFiltrada;
-
-  @override
-  void dispose() {
-    _pesoController.dispose();
-    _pechoController.dispose();
-    _brazoController.dispose();
-    _cinturaController.dispose();
-    _caderasController.dispose();
-    _musloController.dispose();
-    super.dispose();
-  }
-
-  void _agregarRegistro() {
-    final medidaProvider = context.read<MedidaProvider>();
-    final profileProvider = context.read<ProfileProvider>();
-    final altura = profileProvider.altura;
-    final peso = double.tryParse(_pesoController.text);
-
-    if (peso != null && altura != null && peso > 0 && altura > 0) {
-      medidaProvider.agregarMedida(
-        peso: peso,
-        altura: altura,
-        pecho: double.tryParse(_pechoController.text),
-        brazo: double.tryParse(_brazoController.text),
-        cintura: double.tryParse(_cinturaController.text),
-        caderas: double.tryParse(_caderasController.text),
-        muslo: double.tryParse(_musloController.text),
-      );
-      profileProvider.actualizarPeso(peso);
-      _pesoController.clear();_pechoController.clear();_brazoController.clear();
-      _cinturaController.clear();_caderasController.clear();_musloController.clear();
-      FocusScope.of(context).unfocus();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Registro de medida guardado.')));
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ingresa un peso válido y guarda tu altura en el perfil.')));
-    }
-  }
-
-  Future<void> _seleccionarFechaFiltro() async {
-    final DateTime? picked = await showDatePicker(context: context, initialDate: _fechaFiltrada ?? DateTime.now(), firstDate: DateTime(2023), lastDate: DateTime.now(), locale: const Locale('es', 'ES'));
-    if (picked != null) { setState(() { _fechaFiltrada = picked; }); }
-  }
-
-  Tuple2<String, Color> _getIMCCategory(double imc) {
-    if (imc < 18.5) return const Tuple2('Bajo peso', Colors.blue);
-    if (imc < 25) return const Tuple2('Peso normal', Colors.green);
-    if (imc < 30) return const Tuple2('Sobrepeso', Colors.orange);
-    return const Tuple2('Obesidad', Colors.red);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -86,9 +29,10 @@ class _PesoAlturaMedidasState extends State<PesoAlturaMedidas> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildProfileSummary(profileProvider),
+            const SizedBox(height: 20),
             _buildCurrentIMCSummary(profileProvider),
             const SizedBox(height: 30),
-            _buildMeasurementForm(),
+            _buildMeasurementForm(medidaProvider, profileProvider),
             const SizedBox(height: 30),
             if (medidaProvider.registros.isNotEmpty) ...[
               _buildChartSection(medidaProvider.registros),
@@ -106,6 +50,9 @@ class _PesoAlturaMedidasState extends State<PesoAlturaMedidas> {
   }
 
   Widget _buildProfileSummary(ProfileProvider profileProvider) {
+    if (profileProvider.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
     if (!profileProvider.perfilCreado) {
       return const Card(
         child: ListTile(
@@ -116,6 +63,7 @@ class _PesoAlturaMedidasState extends State<PesoAlturaMedidas> {
       );
     }
     
+    final profile = profileProvider.profile!;
     return Card(
       margin: const EdgeInsets.only(bottom: 20),
       child: Padding(
@@ -125,8 +73,9 @@ class _PesoAlturaMedidasState extends State<PesoAlturaMedidas> {
           children: [
             const Text('Mi Perfil', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            Text('Nombre: ${profileProvider.nombre ?? 'N/A'}'),
-            Text('Altura: ${profileProvider.altura ?? 'N/A'} cm'),
+            Text('Nombre: ${profile.name}'),
+            Text('Altura: ${profile.height} cm'),
+            Text('Peso Actual: ${profile.currentWeight} kg'),
           ],
         ),
       ),
@@ -134,17 +83,17 @@ class _PesoAlturaMedidasState extends State<PesoAlturaMedidas> {
   }
 
   Widget _buildCurrentIMCSummary(ProfileProvider profileProvider) {
-    if (profileProvider.isLoading || profileProvider.peso == null || profileProvider.altura == null || profileProvider.altura == 0) {
-      return const SizedBox.shrink();
-    }
+    if (!profileProvider.perfilCreado) return const SizedBox.shrink();
 
-    final double peso = profileProvider.peso!;
-    final double alturaEnMetros = profileProvider.altura! / 100;
-    final double imc = peso / (alturaEnMetros * alturaEnMetros);
+    final profile = profileProvider.profile!;
+    final double alturaEnMetros = profile.height / 100;
+    if (alturaEnMetros == 0) return const SizedBox.shrink();
+    
+    final double imc = profile.currentWeight / (alturaEnMetros * alturaEnMetros);
     final categoria = _getIMCCategory(imc);
 
     return Card(
-      color: categoria.item2.withOpacity(0.1),
+      color: categoria.item2.withAlpha(26),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -167,38 +116,108 @@ class _PesoAlturaMedidasState extends State<PesoAlturaMedidas> {
     );
   }
 
-  Widget _buildMeasurementForm() {
+  Tuple2<String, Color> _getIMCCategory(double imc) {
+    if (imc < 18.5) return const Tuple2('Bajo peso', Colors.blue);
+    if (imc < 25) return const Tuple2('Peso normal', Colors.green);
+    if (imc < 30) return const Tuple2('Sobrepeso', Colors.orange);
+    return const Tuple2('Obesidad', Colors.red);
+  }
+  
+  Widget _buildMeasurementForm(MedidaProvider medidaProvider, ProfileProvider profileProvider) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text('Nuevo Registro de Medidas', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-        TextField(controller: _pesoController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Peso (kg)')),
-        TextField(controller: _pechoController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Pecho (cm)', hintText: 'Opcional')),
-        TextField(controller: _brazoController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Brazo (cm)', hintText: 'Opcional')),
-        TextField(controller: _cinturaController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Cintura (cm)', hintText: 'Opcional')),
-        TextField(controller: _caderasController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Caderas (cm)', hintText: 'Opcional')),
-        TextField(controller: _musloController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Muslo (cm)', hintText: 'Opcional')),
-        const SizedBox(height: 20),
-        ElevatedButton(onPressed: _agregarRegistro, child: const Text('Guardar Medidas')),
+        const SizedBox(height: 10),
+        _buildSingleMeasureInput(
+          tipo: 'peso',
+          label: 'Peso (kg)',
+          medidaProvider: medidaProvider,
+          profileProvider: profileProvider,
+        ),
+        _buildSingleMeasureInput(
+          tipo: 'pecho',
+          label: 'Pecho (cm)',
+          medidaProvider: medidaProvider,
+        ),
+        _buildSingleMeasureInput(
+          tipo: 'brazo',
+          label: 'Brazo (cm)',
+          medidaProvider: medidaProvider,
+        ),
+        _buildSingleMeasureInput(
+          tipo: 'cintura',
+          label: 'Cintura (cm)',
+          medidaProvider: medidaProvider,
+        ),
+        _buildSingleMeasureInput(
+          tipo: 'caderas',
+          label: 'Caderas (cm)',
+          medidaProvider: medidaProvider,
+        ),
+        _buildSingleMeasureInput(
+          tipo: 'muslo',
+          label: 'Muslo (cm)',
+          medidaProvider: medidaProvider,
+        ),
       ],
     );
   }
 
+  Widget _buildSingleMeasureInput({
+    required String tipo,
+    required String label,
+    required MedidaProvider medidaProvider,
+    ProfileProvider? profileProvider,
+  }) {
+    final controller = TextEditingController();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: controller,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                labelText: label,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          ElevatedButton(
+            onPressed: () {
+              final valor = double.tryParse(controller.text);
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+              if (valor != null && valor > 0) {
+                medidaProvider.agregarMedidas({tipo: valor}, DateTime.now());
+                if (tipo == 'peso' && profileProvider != null) {
+                  profileProvider.actualizarPesoActual(valor);
+                }
+                controller.clear();
+                FocusScope.of(context).unfocus();
+                scaffoldMessenger.showSnackBar(SnackBar(content: Text('Registro de $label guardado.')));
+              } else {
+                scaffoldMessenger.showSnackBar(SnackBar(content: Text('Ingresa un valor válido para $label.')));
+              }
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+  }
+  
   Widget _buildChartSection(List<Medida> registros) {
-    if (registros.length < 2) {
-      return const Center(child: Padding(padding: EdgeInsets.symmetric(vertical: 20.0), child: Text('Necesitas al menos 2 registros para ver el gráfico.')));
-    }
-    List<Medida> registrosOrdenados = List.from(registros)..sort((a, b) => a.fecha.compareTo(b.fecha));
+    final registrosFiltrados = registros.where((m) => m.tipo == _graficoSeleccionado).toList()..sort((a,b) => a.fecha.compareTo(b.fecha));
 
-    final spots = registrosOrdenados.map((medida) {
-      double? valor = _getMetricaValue(medida, _graficoSeleccionado);
-      if (valor == null) return null;
-      return FlSpot(medida.fecha.millisecondsSinceEpoch.toDouble(), valor);
-    }).whereType<FlSpot>().toList();
-
-    if (spots.isEmpty) {
-      return Center(child: Padding(padding: const EdgeInsets.symmetric(vertical: 20.0), child: Text('No hay datos para la métrica "$_graficoSeleccionado".')));
+    if (registrosFiltrados.length < 2) {
+      return Center(child: Padding(padding: const EdgeInsets.symmetric(vertical: 20.0), child: Text('Necesitas al menos 2 registros de "$_graficoSeleccionado" para ver el gráfico.')));
     }
+
+    final spots = registrosFiltrados.map((medida) {
+      return FlSpot(medida.fecha.millisecondsSinceEpoch.toDouble(), medida.valor);
+    }).toList();
 
     final double minX = spots.first.x;
     final double maxX = spots.last.x;
@@ -225,7 +244,7 @@ class _PesoAlturaMedidasState extends State<PesoAlturaMedidas> {
             LineChartData(
               lineTouchData: LineTouchData(
                 touchTooltipData: LineTouchTooltipData(
-                  getTooltipColor: (spot) => Colors.blueGrey.withOpacity(0.8),
+                  getTooltipColor: (spot) => Colors.blueGrey.withAlpha(204),
                   getTooltipItems: (touchedSpots) {
                     return touchedSpots.map((spot) {
                       final fecha = DateTime.fromMillisecondsSinceEpoch(spot.x.toInt());
@@ -241,7 +260,7 @@ class _PesoAlturaMedidasState extends State<PesoAlturaMedidas> {
               titlesData: FlTitlesData(
                 bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (value, meta) {
                       final fecha = DateTime.fromMillisecondsSinceEpoch(value.toInt());
-                      return SideTitleWidget(axisSide: meta.axisSide, child: Text(DateFormat('dd/MM').format(fecha), style: const TextStyle(fontSize: 10)));
+                      return Text(DateFormat('dd/MM').format(fecha), style: const TextStyle(fontSize: 10));
                     }, reservedSize: 30, interval: interval)),
                 leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 40)),
                 topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -250,7 +269,7 @@ class _PesoAlturaMedidasState extends State<PesoAlturaMedidas> {
               lineBarsData: [
                 LineChartBarData(
                   spots: spots, isCurved: true, color: Theme.of(context).primaryColor, barWidth: 3, dotData: const FlDotData(show: true),
-                  belowBarData: BarAreaData(show: true, color: Theme.of(context).primaryColor.withOpacity(0.3)),
+                  belowBarData: BarAreaData(show: true, color: Theme.of(context).primaryColor.withAlpha(77)),
                 ),
               ],
             ),
@@ -260,126 +279,77 @@ class _PesoAlturaMedidasState extends State<PesoAlturaMedidas> {
     );
   }
 
-  double? _getMetricaValue(Medida medida, String metrica) {
-    switch (metrica) {
-      case 'peso': return medida.peso; case 'pecho': return medida.pecho; case 'brazo': return medida.brazo;
-      case 'cintura': return medida.cintura; case 'caderas': return medida.caderas; case 'muslo': return medida.muslo;
-      default: return null;
-    }
-  }
-
   Widget _buildHistoryList(List<Medida> todosLosRegistros, MedidaProvider medidaProvider) {
-    final registrosFiltrados = _fechaFiltrada == null ? todosLosRegistros : todosLosRegistros.where((r) => DateUtils.isSameDay(r.fecha, _fechaFiltrada)).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Historial de Registros', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            IconButton(icon: const Icon(Icons.calendar_today), onPressed: _seleccionarFechaFiltro),
-          ],
-        ),
-        if (_fechaFiltrada != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8.0),
-            child: Chip(
-              label: Text('Mostrando: ${DateFormat('dd/MM/yyyy', 'es_ES').format(_fechaFiltrada!)}'),
-              onDeleted: () => setState(() => _fechaFiltrada = null),
-            ),
-          ),
+        const Text('Historial de Registros', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
-        if (registrosFiltrados.isEmpty)
-          const Center(child: Padding(padding: EdgeInsets.symmetric(vertical: 20.0), child: Text('No hay registros para la fecha seleccionada.')))
-        else
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: registrosFiltrados.length,
-            itemBuilder: (context, index) {
-              final medida = registrosFiltrados[index];
-              return Card(
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                child: ListTile(
-                  title: Text(DateFormat('dd/MM/yyyy - hh:mm a', 'es_ES').format(medida.fecha)),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Peso: ${medida.peso.toStringAsFixed(1)} kg'),
-                      if (medida.pecho != null) Text('Pecho: ${medida.pecho!.toStringAsFixed(1)} cm'),
-                      if (medida.brazo != null) Text('Brazo: ${medida.brazo!.toStringAsFixed(1)} cm'),
-                      if (medida.cintura != null) Text('Cintura: ${medida.cintura!.toStringAsFixed(1)} cm'),
-                      if (medida.caderas != null) Text('Caderas: ${medida.caderas!.toStringAsFixed(1)} cm'),
-                      if (medida.muslo != null) Text('Muslo: ${medida.muslo!.toStringAsFixed(1)} cm'),
-                    ],
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _showEditDialog(medida)),
-                      IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () {
-                          showDialog(context: context, builder: (ctx) => AlertDialog(
-                                title: const Text('Eliminar Registro'),
-                                content: const Text('¿Estás seguro de que quieres eliminar este registro?'),
-                                actions: [
-                                  TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancelar')),
-                                  TextButton(
-                                    onPressed: () {
-                                      medidaProvider.eliminarMedida(medida.id);
-                                      Navigator.of(ctx).pop();
-                                    },
-                                    child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
-                                  ),
-                                ],
-                              ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: todosLosRegistros.length,
+          itemBuilder: (context, index) {
+            final medida = todosLosRegistros[index];
+            return Card(
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              child: ListTile(
+                title: Text('${medida.tipo.toUpperCase()}: ${medida.valor.toStringAsFixed(1)}'),
+                subtitle: Text(DateFormat('dd/MM/yyyy - hh:mm a', 'es_ES').format(medida.fecha)),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _showEditDialog(medida, medidaProvider)),
+                    IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () {
+                        _showDeleteConfirmationDialog(medida.id, medidaProvider);
+                      },
+                    ),
+                  ],
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          },
+        ),
       ],
     );
   }
 
-  void _showEditDialog(Medida medida) {
-    final editPesoController = TextEditingController(text: medida.peso.toString());
-    final editPechoController = TextEditingController(text: medida.pecho?.toString() ?? '');
-    final editBrazoController = TextEditingController(text: medida.brazo?.toString() ?? '');
-    final editCinturaController = TextEditingController(text: medida.cintura?.toString() ?? '');
-    final editCaderasController = TextEditingController(text: medida.caderas?.toString() ?? '');
-    final editMusloController = TextEditingController(text: medida.muslo?.toString() ?? '');
+  void _showDeleteConfirmationDialog(String medidaId, MedidaProvider medidaProvider) {
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+          title: const Text('Eliminar Registro'),
+          content: const Text('¿Estás seguro de que quieres eliminar este registro?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancelar')),
+            TextButton(
+              onPressed: () {
+                medidaProvider.eliminarMedida(medidaId);
+                Navigator.of(ctx).pop();
+              },
+              child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        ),
+    );
+  }
+
+  void _showEditDialog(Medida medida, MedidaProvider medidaProvider) {
+    final editController = TextEditingController(text: medida.valor.toString());
 
     showDialog(context: context, builder: (ctx) => AlertDialog(
-        title: const Text('Editar Medida'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: editPesoController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Peso (kg)')),
-              TextField(controller: editPechoController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Pecho (cm)')),
-              TextField(controller: editBrazoController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Brazo (cm)')),
-              TextField(controller: editCinturaController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Cintura (cm)')),
-              TextField(controller: editCaderasController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Caderas (cm)')),
-              TextField(controller: editMusloController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Muslo (cm)')),
-            ],
-          ),
+        title: Text('Editar ${medida.tipo}'),
+        content: TextField(
+          controller: editController,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(labelText: 'Nuevo valor (${medida.tipo == 'peso' ? 'kg' : 'cm'})'),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancelar')),
           TextButton(
             onPressed: () {
-              final newPeso = double.tryParse(editPesoController.text);
-              if (newPeso != null && newPeso > 0) {
-                Provider.of<MedidaProvider>(context, listen: false).editarMedida(
-                  medida.id, peso: newPeso, altura: medida.altura,
-                  pecho: double.tryParse(editPechoController.text), brazo: double.tryParse(editBrazoController.text),
-                  cintura: double.tryParse(editCinturaController.text), caderas: double.tryParse(editCaderasController.text),
-                  muslo: double.tryParse(editMusloController.text),
-                );
+              final newValue = double.tryParse(editController.text);
+              if (newValue != null && newValue > 0) {
+                final newMedida = Medida(id: medida.id, fecha: medida.fecha, tipo: medida.tipo, valor: newValue);
+                medidaProvider.editarMedida(newMedida);
                 Navigator.of(ctx).pop();
               }
             },

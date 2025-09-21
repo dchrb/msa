@@ -1,43 +1,55 @@
-// lib/pantallas/pantalla_configuracion_tabs.dart
-
 import 'package:flutter/material.dart';
-import 'package:msa/pantallas/meta_config.dart';
-import 'package:msa/pantallas/recordatorios.dart';
-import 'package:msa/pantallas/temas_configuracion.dart';
+import 'package:msa/pantallas/pantalla_perfil.dart';
+import 'package:msa/pantallas/pantalla_temas.dart';
 
-class PantallaConfiguracionTabs extends StatelessWidget {
+class PantallaConfiguracionTabs extends StatefulWidget {
   final int initialIndex;
   const PantallaConfiguracionTabs({super.key, this.initialIndex = 0});
 
   @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+  State<PantallaConfiguracionTabs> createState() => _PantallaConfiguracionTabsState();
+}
 
-    return DefaultTabController(
-      initialIndex: initialIndex,
-      length: 3,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Configuración'),
-          bottom: TabBar(
-            labelColor: colors.onPrimary,
-            unselectedLabelColor: colors.onPrimary.withOpacity(0.7),
-            indicatorColor: colors.onPrimary,
-            tabs: const [
-              // CAMBIO: Se añadió texto a los iconos para mantener la coherencia.
-              Tab(icon: Icon(Icons.flag), text: 'Meta'),
-              Tab(icon: Icon(Icons.notifications), text: 'Recordatorios'),
-              Tab(icon: Icon(Icons.color_lens), text: 'Tema'),
-            ],
-          ),
+class _PantallaConfiguracionTabsState extends State<PantallaConfiguracionTabs> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  static const List<Tab> _tabs = [
+    Tab(text: 'Perfil y Metas', icon: Icon(Icons.person)),
+    Tab(text: 'Temas', icon: Icon(Icons.color_lens_outlined)),
+  ];
+
+  final List<Widget> _tabViews = [
+    const PantallaPerfil(),
+    const PantallaTemas(),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: _tabs.length, vsync: this, initialIndex: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Ajustes'),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: _tabs,
+          isScrollable: false,
+          tabAlignment: TabAlignment.fill,
         ),
-        body: const TabBarView(
-          children: [
-            MetaConfig(),
-            PantallaRecordatorios(),
-            TemasConfiguracion(),
-          ],
-        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: _tabViews,
       ),
     );
   }

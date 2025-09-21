@@ -1,0 +1,19 @@
+export 'agua.dart';
+export 'alimento.dart';
+export 'comida_planificada.dart';
+export 'detalle_ejercicio.dart';
+export 'ejercicio.dart';
+export 'medida.dart';
+export 'meta.dart';
+export 'plato.dart';
+export 'profile.dart';
+export 'receta.dart';
+export 'recordatorio.dart';
+export 'serie.dart';
+export 'sesion_entrenamiento.dart';
+export 'tipo_ejercicio.dart';
+export 'tipo_plato.dart';
+export 'comida_consumida.dart';
+// Exportamos los nuevos modelos para que estén disponibles en toda la app
+export 'insignia.dart';
+export 'racha.dart';

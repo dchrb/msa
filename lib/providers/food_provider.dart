@@ -1,132 +1,142 @@
-// lib/providers/food_provider.dart
-
-import 'package:flutter/material.dart';
-import 'package:msa/models/plato.dart';
-import 'package:msa/models/alimento.dart';
-import 'package:uuid/uuid.dart';
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:msa/models/models.dart';
+import 'package:msa/providers/sync_provider.dart';
+import 'package:uuid/uuid.dart';
 
 class FoodProvider with ChangeNotifier {
+  SyncProvider? _syncProvider;
   late Box<Plato> _platosBox;
-  late Box<Alimento> _alimentosManualesBox;
+  late Box<Alimento> _alimentosBox;
 
-  // Nuevas variables para almacenar los totales en caché
-  double _caloriasSemanaActual = 0.0;
-  double _caloriasMesActual = 0.0;
+  final _uuid = const Uuid();
+  bool _isInitialized = false;
 
   FoodProvider() {
-    _platosBox = Hive.box<Plato>('platosBox');
-    _alimentosManualesBox = Hive.box<Alimento>('alimentosManualesBox');
-    _actualizarCacheTotales();
+    _init();
   }
 
-  List<Plato> get platos => _platosBox.values.toList()..sort((a, b) => b.fecha.compareTo(a.fecha));
-
-  List<Alimento> get alimentosManuales => _alimentosManualesBox.values.toList();
-
-  void agregarAlimentoManual(Alimento alimento) {
-    _alimentosManualesBox.put(alimento.id, alimento);
-    notifyListeners();
+  void updateSyncProvider(SyncProvider? syncProvider) {
+    _syncProvider = syncProvider;
   }
 
-  void eliminarAlimentoManual(String alimentoId) {
-    _alimentosManualesBox.delete(alimentoId);
-    notifyListeners();
-  }
-
-  void agregarPlato(TipoPlato tipo, List<Alimento> alimentos, DateTime fecha) {
-    if (alimentos.isEmpty) return;
-    
-    final double totalCalorias = alimentos.fold(0.0, (sum, alimento) => sum + alimento.calorias);
-    
-    final id = const Uuid().v4();
-    final nuevoPlato = Plato(
-      id: id,
-      tipo: tipo,
-      fecha: fecha,
-      alimentos: alimentos,
-      totalCalorias: totalCalorias,
-    );
-    _platosBox.put(id, nuevoPlato);
-    _actualizarCacheTotales();
-    notifyListeners();
-  }
-
-  void eliminarPlato(String id) {
-    _platosBox.delete(id);
-    _actualizarCacheTotales();
-    notifyListeners();
-  }
-  
-  void editarPlato(Plato platoActualizado) {
-    platoActualizado.totalCalorias = platoActualizado.alimentos.fold(0.0, (sum, al) => sum + al.calorias);
-    _platosBox.put(platoActualizado.id, platoActualizado);
-    _actualizarCacheTotales();
-    notifyListeners();
-  }
-
-  // Se refactorizó la lógica para que los getters retornen el valor en caché
-  double getCaloriasPorFecha(DateTime fecha) {
-    double total = 0.0;
-    final fechaSinHora = DateTime(fecha.year, fecha.month, fecha.day);
-
-    for (var plato in _platosBox.values) {
-      final fechaPlatoSinHora = DateTime(plato.fecha.year, plato.fecha.month, plato.fecha.day);
-      if (fechaPlatoSinHora == fechaSinHora) {
-        total += plato.totalCalorias;
-      }
+  Future<void> _init() async {
+    if (!Hive.isBoxOpen('platos')) {
+      _platosBox = await Hive.openBox<Plato>('platos');
+    } else {
+      _platosBox = Hive.box<Plato>('platos');
     }
-    return total;
+    if (!Hive.isBoxOpen('alimentos')) {
+      _alimentosBox = await Hive.openBox<Alimento>('alimentos');
+    } else {
+      _alimentosBox = Hive.box<Alimento>('alimentos');
+    }
+    _isInitialized = true;
+    notifyListeners();
   }
 
-  // Ahora solo se devuelve el valor en caché
-  double getCaloriasSemanaActual() {
-    return _caloriasSemanaActual;
-  }
+  bool get isInitialized => _isInitialized;
 
-  // Ahora solo se devuelve el valor en caché
-  double getCaloriasMesActual() {
-    return _caloriasMesActual;
-  }
-  
+  // Getter para todos los platos (para el SyncProvider)
+  List<Plato> get allPlatos => _isInitialized ? _platosBox.values.toList() : [];
+
   List<Plato> getPlatosPorFecha(DateTime fecha) {
-    final fechaSinHora = DateTime(fecha.year, fecha.month, fecha.day);
-    return _platosBox.values.where((plato) {
-      final fechaPlatoSinHora = DateTime(plato.fecha.year, plato.fecha.month, plato.fecha.day);
-      return fechaPlatoSinHora == fechaSinHora;
-    }).toList();
+    if (!_isInitialized) return [];
+    final fechaNormalizada = _normalizeDate(fecha);
+    return _platosBox.values.where((plato) => _normalizeDate(plato.fecha) == fechaNormalizada).toList();
   }
 
-  Map<DateTime, double> getCaloriasUltimos7Dias() {
-    final Map<DateTime, double> caloriasPorDia = {};
-    final hoy = DateTime.now();
-
-    for (int i = 0; i < 7; i++) {
-      final fecha = hoy.subtract(Duration(days: i));
-      final fechaSinHora = DateTime(fecha.year, fecha.month, fecha.day);
-      
-      caloriasPorDia[fechaSinHora] = getCaloriasPorFecha(fechaSinHora);
-    }
-    return caloriasPorDia;
+  List<Alimento> get alimentosManuales => _isInitialized ? _alimentosBox.values.toList() : [];
+  
+  Plato? getPlatoById(String id) {
+    return _isInitialized ? _platosBox.get(id) : null;
   }
 
-  // Nuevo método privado para actualizar los valores en caché
-  void _actualizarCacheTotales() {
-    final ahora = DateTime.now();
-    final inicioSemana = ahora.subtract(Duration(days: ahora.weekday - 1));
-    _caloriasSemanaActual = 0.0;
-    _caloriasMesActual = 0.0;
-    
-    for (var plato in _platosBox.values) {
-      final fechaPlato = plato.fecha;
-      // Recálculo del total semanal
-      if (fechaPlato.isAfter(inicioSemana.subtract(const Duration(days: 1))) && fechaPlato.isBefore(ahora.add(const Duration(days: 1)))) {
-        _caloriasSemanaActual += plato.totalCalorias;
-      }
-      // Recálculo del total mensual
-      if (fechaPlato.year == ahora.year && fechaPlato.month == ahora.month) {
-        _caloriasMesActual += plato.totalCalorias;
+  Future<void> agregarPlato({
+    required TipoPlato tipo,
+    required List<Alimento> alimentos,
+    DateTime? fecha,
+  }) async {
+    if (!_isInitialized) return;
+    final fechaNormalizada = _normalizeDate(fecha ?? DateTime.now());
+    final calorias = alimentos.fold<double>(0, (sum, item) => sum + item.calorias);
+
+    final nuevoPlato = Plato(
+      id: _uuid.v4(),
+      tipo: tipo,
+      fecha: fechaNormalizada,
+      alimentos: alimentos,
+      totalCalorias: calorias,
+    );
+
+    await _platosBox.put(nuevoPlato.id, nuevoPlato);
+    _syncProvider?.syncDocumentToFirestore('platos', nuevoPlato.id, nuevoPlato.toJson());
+    notifyListeners();
+  }
+
+  Future<void> editarPlato(Plato platoActualizado) async {
+    if (!_isInitialized) return;
+    platoActualizado.totalCalorias = platoActualizado.alimentos.fold<double>(0, (sum, item) => sum + item.calorias);
+    await _platosBox.put(platoActualizado.id, platoActualizado);
+    _syncProvider?.syncDocumentToFirestore('platos', platoActualizado.id, platoActualizado.toJson());
+    notifyListeners();
+  }
+
+  Future<void> eliminarPlato(String platoId) async {
+    if (!_isInitialized) return;
+    await _platosBox.delete(platoId);
+    _syncProvider?.deleteDocumentFromFirestore('platos', platoId);
+    notifyListeners();
+  }
+  
+  Future<void> addAlimentoManual(Alimento alimento) async {
+    if (!_isInitialized) return;
+    final nuevoAlimento = alimento.copyWith(id: _uuid.v4());
+    await _alimentosBox.put(nuevoAlimento.id, nuevoAlimento);
+    _syncProvider?.syncDocumentToFirestore('alimentos', nuevoAlimento.id, nuevoAlimento.toJson());
+    notifyListeners();
+  }
+
+  Future<void> removeAlimentoManual(String alimentoId) async {
+    if (!_isInitialized) return;
+    await _alimentosBox.delete(alimentoId);
+    _syncProvider?.deleteDocumentFromFirestore('alimentos', alimentoId);
+    notifyListeners();
+  }
+
+  double getCaloriasConsumidasPorFecha(DateTime fecha) {
+    final platos = getPlatosPorFecha(fecha);
+    return platos.fold(0.0, (sum, plato) => sum + plato.totalCalorias);
+  }
+
+  Map<String, double> getMacrosPorFecha(DateTime fecha) {
+    final platos = getPlatosPorFecha(fecha);
+    Map<String, double> macros = {'proteinas': 0, 'carbohidratos': 0, 'grasas': 0};
+
+    for (var plato in platos) {
+      for (var alimento in plato.alimentos) {
+        macros['proteinas'] = (macros['proteinas'] ?? 0) + alimento.proteinas;
+        macros['carbohidratos'] = (macros['carbohidratos'] ?? 0) + alimento.carbohidratos;
+        macros['grasas'] = (macros['grasas'] ?? 0) + alimento.grasas;
       }
     }
+    return macros;
+  }
+  
+  Future<void> replaceAllData(List<Plato> platos, List<Alimento> alimentos) async {
+    if (!_isInitialized) return;
+    await _platosBox.clear();
+    await _alimentosBox.clear();
+    for (var plato in platos) {
+      await _platosBox.put(plato.id, plato);
+    }
+    for (var alimento in alimentos) {
+      await _alimentosBox.put(alimento.id, alimento);
+    }
+    notifyListeners();
+  }
+
+  DateTime _normalizeDate(DateTime dateTime) {
+    return DateTime(dateTime.year, dateTime.month, dateTime.day);
   }
 }

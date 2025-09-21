@@ -1,27 +1,19 @@
 // lib/pantallas/recordatorios.dart
 
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:msa/models/recordatorio.dart';
+import 'package:msa/providers/recordatorio_provider.dart';
 import 'package:msa/services/notification_service.dart';
-import 'package:uuid/uuid.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:provider/provider.dart';
 
-class PantallaRecordatorios extends StatefulWidget {
-  const PantallaRecordatorios({super.key});
+class Recordatorios extends StatefulWidget {
+  const Recordatorios({super.key});
 
   @override
-  State<PantallaRecordatorios> createState() => _PantallaRecordatoriosState();
+  State<Recordatorios> createState() => _RecordatoriosState();
 }
 
-class _PantallaRecordatoriosState extends State<PantallaRecordatorios> {
-  late Box<Recordatorio> _recordatorioBox;
-
-  @override
-  void initState() {
-    super.initState();
-    _recordatorioBox = Hive.box<Recordatorio>('recordatoriosBox');
-  }
+class _RecordatoriosState extends State<Recordatorios> {
 
   String _formatearHora(TimeOfDay hora) {
     final hour = hora.hourOfPeriod == 0 ? 12 : hora.hourOfPeriod;
@@ -86,10 +78,11 @@ class _PantallaRecordatoriosState extends State<PantallaRecordatorios> {
                 TextButton(
                   child: const Text('Aceptar'),
                   onPressed: () {
-                    final hour = selectedPeriod == DayPeriod.pm
-                        ? (selectedHour % 12) + 12
-                        : selectedHour % 12;
-                    Navigator.of(ctx).pop(TimeOfDay(hour: hour, minute: selectedMinute));
+                    final hour24 = selectedPeriod == DayPeriod.pm
+                        ? (selectedHour == 12 ? 12 : selectedHour + 12)
+                        : (selectedHour == 12 ? 0 : selectedHour);
+
+                    Navigator.of(ctx).pop(TimeOfDay(hour: hour24, minute: selectedMinute));
                   },
                 ),
               ],
@@ -101,215 +94,235 @@ class _PantallaRecordatoriosState extends State<PantallaRecordatorios> {
   }
 
   void _mostrarNotificacionDePrueba() {
-    NotificationService().showTestNotification();
+    NotificationService().mostrarNotificacionDePrueba();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<Box<Recordatorio>>(
-      valueListenable: _recordatorioBox.listenable(),
-      builder: (context, box, _) {
-        final recordatorios = box.values.toList();
-        return Scaffold(
-          appBar: AppBar(
-            automaticallyImplyLeading: false,
-            title: const Text('Mis Recordatorios'),
-            backgroundColor: Theme.of(context).primaryColor,
-          ),
-          body: recordatorios.isEmpty
-              ? const Center(
-                  child: Text(
-                    'No tienes recordatorios.\n¡Añade uno con el botón +!',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 18, color: Colors.grey),
-                  ),
-                )
-              : ListView.builder(
-                  itemCount: recordatorios.length,
-                  itemBuilder: (context, index) {
-                    final recordatorio = recordatorios[index];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: ListTile(
-                        title: Text(
-                          recordatorio.mensaje,
-                          style: TextStyle(
-                            fontSize: 18,
-                            decoration: !recordatorio.activado ? TextDecoration.lineThrough : null,
-                          ),
-                        ),
-                        subtitle: Text(
-                          _formatearHora(recordatorio.timeOfDay),
-                          style: TextStyle(
-                            decoration: !recordatorio.activado ? TextDecoration.lineThrough : null,
-                          ),
-                        ),
-                        trailing: Switch(
-                          value: recordatorio.activado,
-                          onChanged: (value) {
-                            recordatorio.activado = value;
-                            recordatorio.save();
-                            if (value) {
-                              NotificationService().programarRecordatorio(recordatorio);
-                            } else {
-                              NotificationService().cancelarRecordatorio(recordatorio.id.hashCode);
-                            }
-                          },
-                        ),
-                        onTap: () {
-                          _mostrarDialogoEditar(recordatorio);
-                        },
-                        onLongPress: () {
-                          showDialog(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: const Text('¿Eliminar Recordatorio?'),
-                              content: const Text('Esta acción no se puede deshacer.'),
-                              actions: [
-                                TextButton(
-                                  child: const Text('Cancelar'),
-                                  onPressed: () => Navigator.of(ctx).pop(),
-                                ),
-                                TextButton(
-                                  child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
-                                  onPressed: () {
-                                    NotificationService().cancelarRecordatorio(recordatorio.id.hashCode);
-                                    recordatorio.delete();
-                                    Navigator.of(ctx).pop();
-                                  },
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    );
-                  },
+    final recordatorioProvider = context.watch<RecordatorioProvider>();
+    final recordatorios = recordatorioProvider.recordatorios;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Mis Recordatorios'),
+      ),
+      body: recordatorioProvider.recordatorios.isEmpty
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24.0),
+                child: Text(
+                  'No tienes recordatorios.\n¡Añade uno para que no se te olvide nada!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 18, color: Colors.grey),
                 ),
-          floatingActionButton: FloatingActionButton(
-            onPressed: _mostrarDialogoAnadir,
-            child: const Icon(Icons.add),
-          ),
-          bottomNavigationBar: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: ElevatedButton.icon(
-              onPressed: _mostrarNotificacionDePrueba,
-              icon: const Icon(Icons.notifications_active),
-              label: const Text('Probar Notificación'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.secondary,
-                foregroundColor: Theme.of(context).colorScheme.onSecondary,
               ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.only(bottom: 100),
+              itemCount: recordatorios.length,
+              itemBuilder: (context, index) {
+                final recordatorio = recordatorios[index];
+                return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  elevation: 2.0,
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    title: Text(
+                      recordatorio.mensaje,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                        decoration: !recordatorio.activado ? TextDecoration.lineThrough : null,
+                        color: !recordatorio.activado ? Colors.grey : null,
+                      ),
+                    ),
+                    subtitle: Text(
+                      _formatearHora(recordatorio.timeOfDay),
+                       style: TextStyle(
+                        decoration: !recordatorio.activado ? TextDecoration.lineThrough : null,
+                      ),
+                    ),
+                    trailing: Switch(
+                      value: recordatorio.activado,
+                      onChanged: (value) {
+                        final r = recordatorio;
+                        r.activado = value;
+                        recordatorioProvider.actualizarRecordatorio(r);
+                      },
+                    ),
+                    onTap: () {
+                      _mostrarDialogoEditar(context, recordatorio);
+                    },
+                    onLongPress: () {
+                      _mostrarDialogoConfirmarEliminar(context, recordatorio.id);
+                    },
+                  ),
+                );
+              },
             ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _mostrarDialogoAnadir(context),
+        child: const Icon(Icons.add),
+      ),
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: ElevatedButton.icon(
+          onPressed: _mostrarNotificacionDePrueba,
+          icon: const Icon(Icons.notifications_active_outlined),
+          label: const Text('Probar Notificación'),
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            backgroundColor: Theme.of(context).colorScheme.secondary,
+            foregroundColor: Theme.of(context).colorScheme.onSecondary,
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
-  void _mostrarDialogoAnadir() async {
+  void _mostrarDialogoAnadir(BuildContext context) async {
     TimeOfDay horaSeleccionada = TimeOfDay.now();
     final mensajeController = TextEditingController();
+    final recordatorioProvider = context.read<RecordatorioProvider>();
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
 
-    await showDialog(
+    final fueGuardado = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Nuevo Recordatorio'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: mensajeController,
-              decoration: const InputDecoration(labelText: 'Mensaje'),
-              autofocus: true,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () async {
-                final TimeOfDay? horaElegida =
-                    await mostrarTimePickerAmPm(context, horaInicial: horaSeleccionada);
-                if (horaElegida != null) {
-                  horaSeleccionada = horaElegida;
-                }
-              },
-              child: const Text('Seleccionar Hora'),
-            ),
-          ],
-        ),
-      actions: [
-          TextButton(
-            child: const Text('Cancelar'),
-            onPressed: () => Navigator.of(ctx).pop(),
-          ),
-          TextButton(
-            child: const Text('Guardar'),
-            onPressed: () {
-              if (mensajeController.text.isNotEmpty) {
-                final nuevoRecordatorio = Recordatorio(
-                  id: const Uuid().v4(),
-                  hora: horaSeleccionada.hour,
-                  minuto: horaSeleccionada.minute,
-                  mensaje: mensajeController.text,
-                  activado: true,
-                );
-                _recordatorioBox.put(nuevoRecordatorio.id, nuevoRecordatorio);
-                NotificationService().programarRecordatorio(nuevoRecordatorio);
-                Navigator.of(ctx).pop();
-              }
-            },
-          ),
-        ],
-      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setStateInDialog) {
+            return AlertDialog(
+              title: const Text('Nuevo Recordatorio'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: mensajeController,
+                    decoration: const InputDecoration(labelText: 'Mensaje', border: OutlineInputBorder()),
+                    autofocus: true,
+                  ),
+                  const SizedBox(height: 20),
+                  Text('Hora seleccionada: ${_formatearHora(horaSeleccionada)}'),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final TimeOfDay? horaElegida =
+                          await mostrarTimePickerAmPm(context, horaInicial: horaSeleccionada);
+                      if (horaElegida != null) {
+                        setStateInDialog(() {
+                           horaSeleccionada = horaElegida;
+                        });
+                      }
+                    },
+                    child: const Text('Cambiar Hora'),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(child: const Text('Cancelar'), onPressed: () => Navigator.of(ctx).pop(false)),
+                TextButton(
+                  child: const Text('Guardar'),
+                  onPressed: () {
+                    if (mensajeController.text.isNotEmpty) {
+                      recordatorioProvider.anadirRecordatorio(horaSeleccionada, mensajeController.text);
+                      Navigator.of(ctx).pop(true);
+                    }
+                  },
+                ),
+              ],
+            );
+          }
+        );
+      }
     );
+
+    if (mounted && (fueGuardado ?? false)) {
+        scaffoldMessenger.showSnackBar(const SnackBar(content: Text("Recordatorio añadido")));
+    }
   }
 
-  void _mostrarDialogoEditar(Recordatorio recordatorio) async {
+  void _mostrarDialogoEditar(BuildContext context, Recordatorio recordatorio) async {
     TimeOfDay horaSeleccionada = recordatorio.timeOfDay;
     final mensajeController = TextEditingController(text: recordatorio.mensaje);
+    final recordatorioProvider = context.read<RecordatorioProvider>();
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
 
-    await showDialog(
+    final fueGuardado = await showDialog<bool>(
+      context: context,
+       builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setStateInDialog) {
+            return AlertDialog(
+              title: const Text('Editar Recordatorio'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: mensajeController,
+                    decoration: const InputDecoration(labelText: 'Mensaje', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 20),
+                  Text('Hora seleccionada: ${_formatearHora(horaSeleccionada)}'),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final TimeOfDay? horaElegida =
+                          await mostrarTimePickerAmPm(context, horaInicial: horaSeleccionada);
+                      if (horaElegida != null) {
+                        setStateInDialog(() {
+                           horaSeleccionada = horaElegida;
+                        });
+                      }
+                    },
+                    child: const Text('Cambiar Hora'),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(child: const Text('Cancelar'),onPressed: () => Navigator.of(ctx).pop(false)),
+                TextButton(
+                  child: const Text('Guardar'),
+                  onPressed: () {
+                    recordatorio.hora = horaSeleccionada.hour;
+                    recordatorio.minuto = horaSeleccionada.minute;
+                    recordatorio.mensaje = mensajeController.text;
+                    recordatorioProvider.actualizarRecordatorio(recordatorio);
+                    Navigator.of(ctx).pop(true);
+                  },
+                ),
+              ],
+            );
+          }
+        );
+      }
+    );
+
+     if (mounted && (fueGuardado ?? false)) {
+        scaffoldMessenger.showSnackBar(const SnackBar(content: Text("Recordatorio actualizado")));
+    }
+  }
+
+  void _mostrarDialogoConfirmarEliminar(BuildContext context, String id) async {
+     final recordatorioProvider = context.read<RecordatorioProvider>();
+     final scaffoldMessenger = ScaffoldMessenger.of(context);
+     final fueEliminado = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Editar Recordatorio'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: mensajeController,
-              decoration: const InputDecoration(labelText: 'Mensaje'),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () async {
-                final TimeOfDay? horaElegida =
-                    await mostrarTimePickerAmPm(context, horaInicial: horaSeleccionada);
-                if (horaElegida != null) {
-                  horaSeleccionada = horaElegida;
-                }
-              },
-              child: const Text('Seleccionar Hora'),
-            ),
-          ],
-        ),
+        title: const Text('¿Eliminar Recordatorio?'),
+        content: const Text('Esta acción no se puede deshacer.'),
         actions: [
+          TextButton(child: const Text('Cancelar'), onPressed: () => Navigator.of(ctx).pop(false)),
           TextButton(
-            child: const Text('Cancelar'),
-            onPressed: () => Navigator.of(ctx).pop(),
-          ),
-          TextButton(
-            child: const Text('Guardar'),
+            child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
             onPressed: () {
-              recordatorio.hora = horaSeleccionada.hour;
-              recordatorio.minuto = horaSeleccionada.minute;
-              recordatorio.mensaje = mensajeController.text;
-              recordatorio.save();
-              NotificationService().cancelarRecordatorio(recordatorio.id.hashCode);
-              NotificationService().programarRecordatorio(recordatorio);
-              Navigator.of(ctx).pop();
+              recordatorioProvider.eliminarRecordatorio(id);
+              Navigator.of(ctx).pop(true);
             },
           ),
         ],
       ),
     );
+
+    if (mounted && (fueEliminado ?? false)) {
+      scaffoldMessenger.showSnackBar(const SnackBar(content: Text("Recordatorio eliminado")));
+    }
   }
 }

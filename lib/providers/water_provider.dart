@@ -1,44 +1,58 @@
-// lib/providers/water_provider.dart
-
 import 'package:flutter/material.dart';
-import 'package:msa/models/agua.dart';
-import 'package:uuid/uuid.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:uuid/uuid.dart';
+
+import 'package:msa/models/agua.dart';
+import 'package:msa/providers/sync_provider.dart';
 
 class WaterProvider with ChangeNotifier {
+  SyncProvider? _syncProvider;
   late Box<Agua> _aguaBox;
   double _meta = 2500.0;
+  bool _isInitialized = false;
 
   WaterProvider() {
     _init();
   }
 
+  void updateSyncProvider(SyncProvider? syncProvider) {
+    _syncProvider = syncProvider;
+  }
+
   Future<void> _init() async {
-    _aguaBox = Hive.box<Agua>('aguaBox');
-    await loadGoal();
+    _aguaBox = Hive.box<Agua>('agua');
+    await _loadGoal();
+    _isInitialized = true;
     notifyListeners();
   }
 
+  bool get isInitialized => _isInitialized;
   List<Agua> get registros => _aguaBox.values.toList()..sort((a, b) => b.timestamp.compareTo(a.timestamp));
-  double get meta => _meta;
-
-  Future<void> loadGoal() async {
-    final prefs = await SharedPreferences.getInstance();
-    _meta = prefs.getDouble('waterGoal') ?? 2500.0;
+  
+  // Getters para la pantalla de inicio
+  double get metaDiaria => _meta; // <-- AÑADIDO para consistencia
+  double get consumoTotalHoy { // <-- AÑADIDO
+    if (!_isInitialized) return 0.0;
+    return getIngestaPorFecha(DateTime.now());
   }
 
-  Future<void> saveGoal() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('waterGoal', _meta);
+  Future<void> _loadGoal() async {
+    final box = await Hive.openBox('water_goal');
+    _meta = box.get('goal', defaultValue: 2500.0);
+  }
+
+  Future<void> _saveGoal() async {
+    final box = await Hive.openBox('water_goal');
+    await box.put('goal', _meta);
   }
 
   double getIngestaPorFecha(DateTime fecha) {
+    final inicioDia = DateTime(fecha.year, fecha.month, fecha.day);
+    final finDia = inicioDia.add(const Duration(days: 1));
+
     return _aguaBox.values
         .where((r) =>
-            r.timestamp.day == fecha.day &&
-            r.timestamp.month == fecha.month &&
-            r.timestamp.year == fecha.year)
+            !r.timestamp.isBefore(inicioDia) && r.timestamp.isBefore(finDia))
         .fold(0.0, (sum, item) => sum + item.amount);
   }
 
@@ -51,7 +65,7 @@ class WaterProvider with ChangeNotifier {
         .toList();
   }
 
-  void addAgua(double cantidad, DateTime fecha) {
+  Future<void> addAgua(double cantidad, DateTime fecha) async {
     final ahora = DateTime.now();
     final fechaCompleta = DateTime(fecha.year, fecha.month, fecha.day, ahora.hour, ahora.minute, ahora.second);
     final id = const Uuid().v4();
@@ -60,31 +74,30 @@ class WaterProvider with ChangeNotifier {
       amount: cantidad,
       timestamp: fechaCompleta,
     );
-    _aguaBox.put(id, nuevoRegistro);
+    await _aguaBox.put(id, nuevoRegistro);
+    await _syncProvider?.syncDocumentToFirestore('agua', id, nuevoRegistro.toJson());
     notifyListeners();
   }
 
-  void editarRegistro(String id, double nuevaCantidad) {
-    final registro = _aguaBox.get(id);
-    if (registro != null) {
-      registro.amount = nuevaCantidad;
-      registro.save();
-      notifyListeners();
-    }
-  }
-
-  void eliminarRegistro(String id) {
-    _aguaBox.delete(id);
+  Future<void> updateAgua(Agua registro, double nuevaCantidad) async {
+    final registroActualizado = registro.copyWith(amount: nuevaCantidad);
+    await _aguaBox.put(registro.id, registroActualizado);
+    await _syncProvider?.syncDocumentToFirestore('agua', registro.id, registroActualizado.toJson());
     notifyListeners();
   }
 
-  void setMeta(double nuevaMeta) {
+  Future<void> eliminarRegistro(String id) async {
+    await _aguaBox.delete(id);
+    await _syncProvider?.deleteDocumentFromFirestore('agua', id);
+    notifyListeners();
+  }
+
+  Future<void> setMeta(double nuevaMeta) async {
     _meta = nuevaMeta;
-    saveGoal();
+    await _saveGoal();
     notifyListeners();
   }
 
-  // --- NUEVA FUNCIÓN AÑADIDA ---
   Map<DateTime, double> getIngestaUltimos7Dias() {
     final Map<DateTime, double> ingestaPorDia = {};
     final hoy = DateTime.now();
@@ -96,5 +109,13 @@ class WaterProvider with ChangeNotifier {
       ingestaPorDia[fechaSinHora] = getIngestaPorFecha(fechaSinHora);
     }
     return ingestaPorDia;
+  }
+
+  Future<void> replaceAllAgua(List<Agua> registros) async {
+    await _aguaBox.clear();
+    for (var registro in registros) {
+      await _aguaBox.put(registro.id, registro);
+    }
+    notifyListeners();
   }
 }

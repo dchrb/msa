@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:msa/pantallas/menu_del_dia.dart';
 import 'package:msa/pantallas/menu_semanal.dart';
 import 'package:msa/pantallas/ideas_de_comida.dart';
+import 'package:msa/pantallas/pantalla_mis_recetas.dart'; // Importado
 
 class PantallaDietaTabs extends StatelessWidget {
   const PantallaDietaTabs({super.key});
@@ -15,6 +16,7 @@ class PantallaDietaTabs extends StatelessWidget {
         MenuDelDia(),
         MenuSemanal(),
         IdeasDeComida(),
+        PantallaMisRecetas(), // Añadido
       ],
     );
   }

@@ -1,48 +1,57 @@
-// lib/providers/theme_provider.dart
-
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:msa/providers/insignia_provider.dart';
-import 'package:provider/provider.dart';
 
 class ThemeProvider with ChangeNotifier {
-  ThemeMode _themeMode = ThemeMode.light;
-  Color _primaryColor = Colors.teal; // Color por defecto
+  final String keyThemeMode = "theme_mode";
+  final String keySeedColor = "seed_color";
+
+  ThemeMode _themeMode = ThemeMode.system;
+  Color _seedColor = Colors.blue;
 
   ThemeMode get themeMode => _themeMode;
-  Color get primaryColor => _primaryColor;
+  Color get seedColor => _seedColor;
+
+  final List<Color> _availableColors = [
+    Colors.blue,
+    Colors.green,
+    Colors.red,
+    Colors.purple,
+    Colors.orange,
+    Colors.teal,
+  ];
+
+  List<Color> get availableColors => _availableColors;
 
   ThemeProvider() {
-    _loadTheme();
+    _loadFromPrefs();
   }
 
-  Future<void> _loadTheme() async {
+  void _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    final isDarkMode = prefs.getBool('isDarkMode') ?? false;
-    _themeMode = isDarkMode ? ThemeMode.dark : ThemeMode.light;
-    final colorValue = prefs.getInt('primaryColor') ?? Colors.teal.value;
-    _primaryColor = Color(colorValue);
+    final themeModeIndex = prefs.getInt(keyThemeMode) ?? ThemeMode.system.index;
+    _themeMode = ThemeMode.values[themeModeIndex];
+    final seedColorValue = prefs.getInt(keySeedColor) ?? _seedColor.toARGB32();
+    _seedColor = Color(seedColorValue);
     notifyListeners();
   }
 
-  void toggleTheme(bool isDarkMode) async {
-    _themeMode = isDarkMode ? ThemeMode.dark : ThemeMode.light;
+  void _saveToPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isDarkMode', isDarkMode);
-    notifyListeners();
-
-    // Llama a la lógica para otorgar la insignia cuando se cambia el tema
-    // Para que funcione, el contexto (context) debe ser accesible.
-    // Esto se hace en la pantalla que usa el provider.
-    // Un ejemplo de cómo se llamaría:
-    // context.read<InsigniaProvider>().otorgarInsignia('personalizador_1', context);
-    // Nota: Esta llamada se hace mejor directamente en el widget (TemasConfiguracion).
+    prefs.setInt(keyThemeMode, _themeMode.index);
+    prefs.setInt(keySeedColor, _seedColor.toARGB32());
   }
 
-  void setPrimaryColor(Color color) async {
-    _primaryColor = color;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('primaryColor', color.value);
+  void setThemeMode(ThemeMode mode) {
+    if (mode == _themeMode) return;
+    _themeMode = mode;
+    _saveToPrefs();
+    notifyListeners();
+  }
+
+  void setSeedColor(Color color) {
+    if (color == _seedColor) return;
+    _seedColor = color;
+    _saveToPrefs();
     notifyListeners();
   }
 }

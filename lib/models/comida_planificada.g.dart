@@ -21,13 +21,14 @@ class ComidaPlanificadaAdapter extends TypeAdapter<ComidaPlanificada> {
       nombre: fields[1] as String,
       tipo: fields[2] as TipoPlato,
       completado: fields[3] as bool,
+      diaDeLaSemana: fields[4] as int,
     );
   }
 
   @override
   void write(BinaryWriter writer, ComidaPlanificada obj) {
     writer
-      ..writeByte(4)
+      ..writeByte(5)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -35,7 +36,9 @@ class ComidaPlanificadaAdapter extends TypeAdapter<ComidaPlanificada> {
       ..writeByte(2)
       ..write(obj.tipo)
       ..writeByte(3)
-      ..write(obj.completado);
+      ..write(obj.completado)
+      ..writeByte(4)
+      ..write(obj.diaDeLaSemana);
   }
 
   @override

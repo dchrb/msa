@@ -28,6 +28,21 @@ class Recordatorio extends HiveObject {
     required this.activado,
   });
 
-  // Getter para facilitar el uso con TimeOfDay
   TimeOfDay get timeOfDay => TimeOfDay(hour: hora, minute: minuto);
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'hora': hora,
+        'minuto': minuto,
+        'mensaje': mensaje,
+        'activado': activado,
+      };
+
+  factory Recordatorio.fromJson(Map<String, dynamic> json) => Recordatorio(
+        id: json['id'],
+        hora: json['hora'],
+        minuto: json['minuto'],
+        mensaje: json['mensaje'],
+        activado: json['activado'],
+      );
 }

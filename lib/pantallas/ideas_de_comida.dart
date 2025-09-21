@@ -3,7 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:msa/providers/dieta_provider.dart';
-import 'package:msa/pantallas/pantalla_detalle_receta.dart'; // Importamos la nueva pantalla
+import 'package:msa/providers/receta_provider.dart';
+import 'package:msa/pantallas/pantalla_detalle_receta.dart';
 
 class IdeasDeComida extends StatefulWidget {
   const IdeasDeComida({super.key});
@@ -52,15 +53,12 @@ class _IdeasDeComidaState extends State<IdeasDeComida> {
                 return const Center(child: CircularProgressIndicator());
               }
               if (provider.errorIdeas != null) {
-                return Center(child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(provider.errorIdeas!, textAlign: TextAlign.center),
-                ));
+                return Center(child: Padding(padding: const EdgeInsets.all(16.0), child: Text(provider.errorIdeas!, textAlign: TextAlign.center)));
               }
               if (provider.ideasComidas.isEmpty) {
-                return const Center(child: Text('No se encontraron recetas.'));
+                return const Center(child: Text('No se encontraron recetas para esta categoría.'));
               }
-              return _buildRecipeList(provider.ideasComidas);
+              return _buildRecipeList(context, provider.ideasComidas);
             },
           ),
         ),
@@ -93,14 +91,9 @@ class _IdeasDeComidaState extends State<IdeasDeComida> {
             onSubmitted: _onSearchSubmitted,
           ),
           const SizedBox(height: 10),
-          const Text("O explora por categoría:", style: TextStyle(color: Colors.grey)),
-          const SizedBox(height: 10),
           DropdownButtonFormField<String>(
-            value: _categoriaSeleccionada,
-            decoration: const InputDecoration(
-              labelText: 'Selecciona una categoría de comida',
-              border: OutlineInputBorder(),
-            ),
+            initialValue: _categoriaSeleccionada,
+            decoration: const InputDecoration(labelText: 'O explora por categoría', border: OutlineInputBorder()),
             items: const [
               DropdownMenuItem(value: "Beef", child: Text("Carne de Res")),
               DropdownMenuItem(value: "Chicken", child: Text("Pollo")),
@@ -127,38 +120,46 @@ class _IdeasDeComidaState extends State<IdeasDeComida> {
     );
   }
 
-  Widget _buildRecipeList(List<dynamic> recetas) {
+  Widget _buildRecipeList(BuildContext context, List<dynamic> recetas) {
+    final recetaProvider = context.read<RecetaProvider>();
+
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       itemCount: recetas.length,
       itemBuilder: (context, index) {
-        final receta = recetas[index];
+        final receta = recetas[index] as Map<String, dynamic>; // Cast a Map
         final String nombreReceta = receta['strMeal'] ?? 'Sin título';
         final String urlImagen = receta['strMealThumb'] ?? '';
-        return InkWell(
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => PantallaDetalleReceta(receta: receta)),
-            );
-          },
-          child: Card(
-            margin: const EdgeInsets.only(bottom: 16),
-            clipBehavior: Clip.antiAlias,
+        
+        return Card(
+          margin: const EdgeInsets.only(bottom: 16),
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 2,
+          child: InkWell(
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => PantallaDetalleReceta(receta: receta))),
             child: Column(
               children: [
                 if (urlImagen.isNotEmpty)
-                  Image.network(
-                    urlImagen,
-                    fit: BoxFit.cover,
-                    height: 150,
-                    width: double.infinity,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const SizedBox(height: 150, child: Center(child: Icon(Icons.broken_image)));
+                  Image.network(urlImagen, fit: BoxFit.cover, height: 150, width: double.infinity, errorBuilder: (c, e, s) => const SizedBox(height: 150, child: Center(child: Icon(Icons.broken_image, color: Colors.grey)))),
+                ListTile(
+                  title: Text(nombreReceta, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Idea de TheMealDB'),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.add_circle_outline, color: Colors.green, size: 30),
+                    tooltip: 'Guardar en Mis Recetas',
+                    onPressed: () {
+                      recetaProvider.agregarRecetaDesdeApi(receta);
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text("'$nombreReceta' se ha guardado en \"Mis Recetas\""),
+                          backgroundColor: Colors.green,
+                          action: SnackBarAction(label: 'OK', onPressed: () => ScaffoldMessenger.of(context).hideCurrentSnackBar()),
+                        ),
+                      );
                     },
                   ),
-                ListTile(
-                  title: Text(nombreReceta),
-                  subtitle: const Text('Receta de TheMealDB'),
                 ),
               ],
             ),

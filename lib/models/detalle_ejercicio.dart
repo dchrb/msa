@@ -27,4 +27,22 @@ class DetalleEjercicio extends HiveObject {
     this.distanciaKm,
     this.repeticionesSinPeso,
   });
+
+  Map<String, dynamic> toJson() => {
+        'ejercicioId': ejercicioId,
+        'series': series.map((s) => s.toJson()).toList(),
+        'duracionMinutos': duracionMinutos,
+        'distanciaKm': distanciaKm,
+        'repeticionesSinPeso': repeticionesSinPeso,
+      };
+
+  factory DetalleEjercicio.fromJson(Map<String, dynamic> json) => DetalleEjercicio(
+        ejercicioId: json['ejercicioId'],
+        series: (json['series'] as List<dynamic>)
+            .map((s) => Serie.fromJson(s))
+            .toList(),
+        duracionMinutos: json['duracionMinutos']?.toDouble(),
+        distanciaKm: json['distanciaKm']?.toDouble(),
+        repeticionesSinPeso: json['repeticionesSinPeso'],
+      );
 }

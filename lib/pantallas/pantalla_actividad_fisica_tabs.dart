@@ -17,11 +17,10 @@ class PantallaActividadFisicaTabs extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          // CAMBIO: Se quitó "automaticallyImplyLeading" para que la flecha principal SÍ aparezca.
           title: const Text('Actividad Física'),
           bottom: TabBar(
             labelColor: colors.onPrimary,
-            unselectedLabelColor: colors.onPrimary.withOpacity(0.7),
+            unselectedLabelColor: colors.onPrimary.withAlpha(178),
             indicatorColor: colors.onPrimary,
             tabs: const [
               Tab(icon: Icon(Icons.history), text: 'Historial'),

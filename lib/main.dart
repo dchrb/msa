@@ -1,70 +1,97 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:msa/firebase_options.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
-import 'package:msa/pantallas/pantalla_splash.dart';
-import 'package:msa/models/recordatorio.dart';
-import 'package:msa/models/medida.dart';
-import 'package:msa/models/agua.dart';
-import 'package:msa/models/alimento.dart';
-import 'package:msa/models/plato.dart';
-import 'package:msa/models/ejercicio.dart';
-import 'package:msa/models/tipo_ejercicio.dart';
-import 'package:msa/models/serie.dart';
-import 'package:msa/models/detalle_ejercicio.dart';
-import 'package:msa/models/sesion_entrenamiento.dart';
-import 'package:msa/models/comida_planificada.dart';
-import 'package:msa/providers/entrenamiento_provider.dart';
-import 'package:msa/providers/water_provider.dart';
-import 'package:msa/providers/recordatorio_provider.dart';
-import 'package:msa/providers/insignia_provider.dart';
-import 'package:msa/providers/meta_provider.dart';
-import 'package:msa/providers/meta1_provider.dart';
-import 'package:msa/providers/theme_provider.dart';
-import 'package:msa/providers/medida_provider.dart';
-import 'package:msa/providers/food_provider.dart';
-import 'package:msa/providers/profile_provider.dart';
-import 'package:msa/providers/dieta_provider.dart';
-import 'package:msa/providers/nutricion_provider.dart';
-import 'package:msa/services/notification_service.dart';
+import 'package:msa/models/models.dart'; 
+import 'package:msa/providers/providers.dart';
+
+import 'package:msa/pantallas/pantallas.dart';
+import 'package:msa/pantallas/pantalla_principal.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: ".env");
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+
   await Hive.initFlutter();
-  
-  Hive.registerAdapter(RecordatorioAdapter());
+
+  // Registro de todos los adaptadores
   Hive.registerAdapter(MedidaAdapter());
-  Hive.registerAdapter(AguaAdapter());
-  Hive.registerAdapter(AlimentoAdapter());
   Hive.registerAdapter(PlatoAdapter());
+  Hive.registerAdapter(AlimentoAdapter());
   Hive.registerAdapter(TipoPlatoAdapter());
   Hive.registerAdapter(EjercicioAdapter());
-  Hive.registerAdapter(TipoEjercicioAdapter());
-  Hive.registerAdapter(DetalleEjercicioAdapter());
-  Hive.registerAdapter(SerieAdapter());
   Hive.registerAdapter(SesionEntrenamientoAdapter());
+  Hive.registerAdapter(AguaAdapter());
+  Hive.registerAdapter(RecetaAdapter());
+  Hive.registerAdapter(RecordatorioAdapter());
   Hive.registerAdapter(ComidaPlanificadaAdapter());
+  Hive.registerAdapter(ProfileAdapter());
+  Hive.registerAdapter(SexoAdapter());
+  Hive.registerAdapter(NivelActividadAdapter());
+  Hive.registerAdapter(ComidaConsumidaAdapter());
+  Hive.registerAdapter(InsigniaAdapter());
+  Hive.registerAdapter(RachaAdapter());
 
-  await Hive.openBox<Recordatorio>('recordatoriosBox');
-  await Hive.openBox<Medida>('medidasBox');
-  await Hive.openBox<Agua>('aguaBox');
-  await Hive.openBox<Plato>('platosBox');
-  await Hive.openBox<Ejercicio>('ejerciciosBox');
-  await Hive.openBox<SesionEntrenamiento>('sesionesBox');
-  await Hive.openBox<ComidaPlanificada>('comidasPlanificadasBox');
-  await Hive.openBox('metaBox');
-  await Hive.openBox<Alimento>('alimentosManualesBox');
-  
-  await NotificationService().initialize();
-  runApp(const MyApp());
+  // Apertura de todas las cajas de Hive.
+  await Hive.openBox<Map>('food');
+  await Hive.openBox<Medida>('medidas');
+  await Hive.openBox<Ejercicio>('ejercicios');
+  await Hive.openBox<SesionEntrenamiento>('sesiones');
+  await Hive.openBox<Agua>('agua');
+  await Hive.openBox<Receta>('recetas');
+  await Hive.openBox<Recordatorio>('recordatorios');
+  await Hive.openBox<ComidaPlanificada>('dieta');
+  await Hive.openBox<Profile>('profile');
+  await Hive.openBox<Insignia>('insignias');
+  await Hive.openBox<Racha>('rachas');
+  await Hive.openBox<ComidaConsumida>('comidasConsumidasBox');
+
+  runApp(const AppState());
+}
+
+class AppState extends StatelessWidget {
+  const AppState({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        // Providers independientes
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => ProfileProvider()),
+        ChangeNotifierProvider(create: (_) => WaterProvider()),
+        ChangeNotifierProvider(create: (_) => RecordatorioProvider()),
+        ChangeNotifierProvider(create: (_) => MedidaProvider()),
+        ChangeNotifierProvider(create: (_) => FoodProvider()),
+        ChangeNotifierProvider(create: (_) => EntrenamientoProvider()),
+        ChangeNotifierProvider(create: (_) => RecetaProvider()),
+        ChangeNotifierProvider(create: (_) => DietaProvider()),
+        ChangeNotifierProvider(create: (_) => InsigniaProvider()),
+        ChangeNotifierProvider(create: (_) => RachaProvider()),
+        ChangeNotifierProvider(create: (_) => ConsumoProvider()), // ¡Corregido!
+
+        // Providers que dependen de otros (ProxyProviders)
+        ChangeNotifierProxyProvider<FoodProvider, SyncProvider>(
+          create: (_) => SyncProvider(),
+          update: (context, foodProvider, sync) {
+            sync?.updateDataProviders(
+              profileProvider: context.read<ProfileProvider>(),
+              medidaProvider: context.read<MedidaProvider>(),
+              foodProvider: foodProvider,
+              entrenamientoProvider: context.read<EntrenamientoProvider>(),
+              waterProvider: context.read<WaterProvider>(),
+              recetaProvider: context.read<RecetaProvider>(),
+              recordatorioProvider: context.read<RecordatorioProvider>(),
+              dietaProvider: context.read<DietaProvider>(),
+            );
+            return sync ?? SyncProvider();
+          },
+        ),
+      ],
+      child: const MyApp(),
+    );
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -72,70 +99,58 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => ProfileProvider()),
-        ChangeNotifierProvider(create: (_) => WaterProvider()),
-        ChangeNotifierProvider(create: (_) => FoodProvider()),
-        ChangeNotifierProvider(create: (_) => MedidaProvider()),
-        ChangeNotifierProvider(create: (_) => EntrenamientoProvider()),
-        ChangeNotifierProvider(create: (_) => RecordatorioProvider()),
-        ChangeNotifierProvider(create: (_) => InsigniaProvider()),
-        ChangeNotifierProvider(create: (_) => MetaProvider()),
-        ChangeNotifierProvider(create: (_) => Meta1Provider()),
-        ChangeNotifierProvider(create: (_) => DietaProvider()),
-        ChangeNotifierProvider(create: (_) => NutricionProvider()),
-      ],
-      child: Consumer<ThemeProvider>(
-        builder: (context, themeProvider, child) {
-          
-          final colorPrimario = themeProvider.primaryColor;
+    final themeProvider = Provider.of<ThemeProvider>(context);
 
-          final themeClaro = ThemeData(
-            useMaterial3: true,
-            primaryColor: colorPrimario,
-            colorScheme: ColorScheme.light(
-              primary: colorPrimario,
-              secondary: Colors.blueGrey,
-              onPrimary: Colors.white,
-            ),
-            appBarTheme: AppBarTheme(
-              backgroundColor: colorPrimario,
-              foregroundColor: Colors.white,
-            ),
-          );
-
-          final themeOscuro = ThemeData(
-            useMaterial3: true,
-            primaryColor: colorPrimario,
-            colorScheme: ColorScheme.dark(
-              primary: colorPrimario,
-              secondary: Colors.blueGrey.shade200,
-              onPrimary: Colors.white,
-            ),
-             appBarTheme: AppBarTheme(
-              backgroundColor: colorPrimario,
-              foregroundColor: Colors.white,
-            ),
-          );
-
-          return MaterialApp(
-            debugShowCheckedModeBanner: false,
-            title: 'Mi Salud Activa',
-            themeMode: themeProvider.themeMode,
-            theme: themeClaro,
-            darkTheme: themeOscuro,
-            localizationsDelegates: const [
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-            ],
-            supportedLocales: const [ Locale('es', 'ES') ],
-            home: const PantallaSplash(),
-          );
-        },
+    return MaterialApp(
+      title: 'Mi Salud Activa',
+      themeMode: themeProvider.themeMode,
+      theme: ThemeData.from(
+        colorScheme: ColorScheme.fromSeed(seedColor: themeProvider.seedColor),
+        useMaterial3: true,
       ),
+      darkTheme: ThemeData.from(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: themeProvider.seedColor,
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
+      ),
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('es', ''),
+      ],
+      home: const AuthWrapper(),
+      debugShowCheckedModeBanner: false,
+    );
+  }
+}
+
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+
+        if (snapshot.hasData) {
+          final user = snapshot.data!;
+          if (user.providerData.any((info) => info.providerId == 'password') && !user.emailVerified) {
+            return const PantallaVerificarEmail();
+          }
+          return const PantallaPrincipal();
+        }
+
+        return const PantallaAuth();
+      },
     );
   }
 }

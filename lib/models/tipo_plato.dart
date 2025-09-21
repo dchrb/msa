@@ -1,6 +1,8 @@
 import 'package:hive/hive.dart';
 
-@HiveType(typeId: 5)
+part 'tipo_plato.g.dart';
+
+@HiveType(typeId: 17) // ID único para el enum
 enum TipoPlato {
   @HiveField(0)
   desayuno,

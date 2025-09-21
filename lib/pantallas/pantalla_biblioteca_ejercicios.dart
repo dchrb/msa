@@ -1,7 +1,9 @@
+
 // lib/pantallas/pantalla_biblioteca_ejercicios.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 import 'package:msa/providers/entrenamiento_provider.dart';
 import 'package:msa/models/ejercicio.dart';
 
@@ -30,7 +32,7 @@ class PantallaBibliotecaEjercicios extends StatelessWidget {
     final bool esEdicion = ejercicioAEditar != null;
     final nombreController = TextEditingController(text: esEdicion ? ejercicioAEditar.nombre : '');
     final musculoController = TextEditingController(text: esEdicion ? (ejercicioAEditar.musculoPrincipal ?? '') : '');
-    TipoEjercicio? tipoSeleccionado = esEdicion ? ejercicioAEditar.tipo : TipoEjercicio.fuerza;
+    TipoEjercicio tipoSeleccionado = esEdicion ? ejercicioAEditar.tipo : TipoEjercicio.fuerza;
 
     showDialog(
       context: context,
@@ -50,21 +52,20 @@ class PantallaBibliotecaEjercicios extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<TipoEjercicio>(
-                      value: tipoSeleccionado,
+                      initialValue: tipoSeleccionado,
                       decoration: const InputDecoration(labelText: 'Tipo de Ejercicio'),
                       items: TipoEjercicio.values.map((tipo) {
-                        String texto;
-                        switch (tipo) {
-                          case TipoEjercicio.fuerza: texto = 'Fuerza'; break;
-                          case TipoEjercicio.cardio: texto = 'Cardio'; break;
-                          case TipoEjercicio.flexibilidad: texto = 'Flexibilidad'; break;
-                        }
-                        return DropdownMenuItem(value: tipo, child: Text(texto));
+                        return DropdownMenuItem(
+                          value: tipo,
+                          child: Text(tipo.toString().split('.').last),
+                        );
                       }).toList(),
                       onChanged: (newValue) {
-                        setDialogState(() {
-                          tipoSeleccionado = newValue;
-                        });
+                        if (newValue != null) {
+                          setDialogState(() {
+                            tipoSeleccionado = newValue;
+                          });
+                        }
                       },
                     ),
                     const SizedBox(height: 16),
@@ -87,7 +88,7 @@ class PantallaBibliotecaEjercicios extends StatelessWidget {
                     final musculo = musculoController.text;
                     final provider = context.read<EntrenamientoProvider>();
 
-                    if (nombre.isNotEmpty && tipoSeleccionado != null) {
+                    if (nombre.isNotEmpty) {
                       if (!esEdicion && provider.existeEjercicio(nombre)) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Ya existe un ejercicio con este nombre.')),
@@ -96,19 +97,24 @@ class PantallaBibliotecaEjercicios extends StatelessWidget {
                       }
 
                       if (esEdicion) {
-                        ejercicioAEditar!.nombre = nombre;
-                        ejercicioAEditar.tipo = tipoSeleccionado!;
-                        ejercicioAEditar.musculoPrincipal = musculo.isNotEmpty ? musculo : null;
-                        provider.editarEjercicio(ejercicioAEditar);
+                        final ejercicioActualizado = Ejercicio(
+                          id: ejercicioAEditar.id,
+                          nombre: nombre,
+                          tipo: tipoSeleccionado,
+                          musculoPrincipal: musculo.isNotEmpty ? musculo : null,
+                        );
+                        provider.editarEjercicio(ejercicioActualizado);
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Ejercicio actualizado.')),
                         );
                       } else {
-                        provider.agregarEjercicio(
-                          nombre,
-                          tipoSeleccionado!,
+                        final nuevoEjercicio = Ejercicio(
+                          id: const Uuid().v4(),
+                          nombre: nombre,
+                          tipo: tipoSeleccionado,
                           musculoPrincipal: musculo.isNotEmpty ? musculo : null,
                         );
+                        provider.agregarEjercicio(nuevoEjercicio);
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Ejercicio añadido.')),
                         );
@@ -129,9 +135,11 @@ class PantallaBibliotecaEjercicios extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        // CAMBIO: Se eliminó el botón manual de "leading" y se añadió "automaticallyImplyLeading: false"
-        automaticallyImplyLeading: false,
         title: const Text('Biblioteca de Ejercicios'),
+        leading: isSelectionMode ? IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.of(context).pop(),
+        ) : null,
       ),
       body: Consumer<EntrenamientoProvider>(
         builder: (context, entrenamientoProvider, child) {
@@ -142,7 +150,21 @@ class PantallaBibliotecaEjercicios extends StatelessWidget {
           final ejercicios = entrenamientoProvider.ejercicios;
 
           if (ejercicios.isEmpty) {
-            return const Center(child: Text('No hay ejercicios disponibles.'));
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text('Tu biblioteca está vacía.', style: TextStyle(fontSize: 18)),
+                    const SizedBox(height: 8),
+                    const Text('¡Añade tu primer ejercicio con el botón de abajo!', textAlign: TextAlign.center),
+                    const SizedBox(height: 20),
+                    Icon(Icons.arrow_downward, size: 40, color: Theme.of(context).colorScheme.primary),
+                  ],
+                ),
+              ),
+            );
           }
 
           return ListView.builder(
@@ -181,7 +203,7 @@ class PantallaBibliotecaEjercicios extends StatelessWidget {
                               return AlertDialog(
                                 title: const Text("Confirmar"),
                                 content: const Text(
-                                    "¿Estás seguro de que quieres eliminar este ejercicio?"),
+                                    "¿Estás seguro de que quieres eliminar este ejercicio? Esta acción no se puede deshacer."),
                                 actions: <Widget>[
                                   TextButton(
                                     onPressed: () => Navigator.of(context).pop(false),

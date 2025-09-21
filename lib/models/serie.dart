@@ -14,4 +14,14 @@ class Serie extends HiveObject {
     required this.repeticiones,
     this.pesoKg,
   });
+
+  Map<String, dynamic> toJson() => {
+        'repeticiones': repeticiones,
+        'pesoKg': pesoKg,
+      };
+
+  factory Serie.fromJson(Map<String, dynamic> json) => Serie(
+        repeticiones: json['repeticiones'],
+        pesoKg: json['pesoKg']?.toDouble(),
+      );
 }

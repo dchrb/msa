@@ -1,109 +1,114 @@
-// lib/providers/profile_provider.dart
-
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-enum Sexo { masculino, femenino }
-enum NivelActividad {
-  sedentario, // poco o nada de ejercicio
-  ligero,     // 1-3 días/semana
-  moderado,   // 3-5 días/semana
-  activo      // 6-7 días/semana
-}
+import 'package:msa/models/profile.dart';
 
 class ProfileProvider with ChangeNotifier {
-  String? _nombre;
-  int? _edad;
-  double? _altura;
-  double? _peso;
-  Sexo? _sexo;
-  NivelActividad? _nivelActividad;
-  String? _imagePath;
-
-  // --- 1. AÑADIMOS EL ESTADO DE CARGA ---
+  Profile? _profile;
   bool _isLoading = true;
+
+  // Getters
+  Profile? get profile => _profile;
   bool get isLoading => _isLoading;
-  
-  // Getters para todos los campos
-  String? get nombre => _nombre;
-  int? get edad => _edad;
-  double? get altura => _altura;
-  double? get peso => _peso;
-  Sexo? get sexo => _sexo;
-  NivelActividad? get nivelActividad => _nivelActividad;
-  String? get imagePath => _imagePath;
+  bool get perfilCreado => _profile != null && _profile!.name.isNotEmpty;
 
-  bool get perfilCreado => _nombre != null && _nombre!.isNotEmpty;
-
-  ProfileProvider() {
-    cargarPerfil();
-  }
-
-  Future<void> cargarPerfil() async {
-    final prefs = await SharedPreferences.getInstance();
-    _nombre = prefs.getString('nombre');
-    _edad = prefs.getInt('edad');
-    _altura = prefs.getDouble('altura');
-    _peso = prefs.getDouble('peso');
-    _imagePath = prefs.getString('imagePath');
-    int? sexoIndex = prefs.getInt('sexo');
-    if (sexoIndex != null) _sexo = Sexo.values[sexoIndex];
-    int? actividadIndex = prefs.getInt('nivelActividad');
-    if (actividadIndex != null) _nivelActividad = NivelActividad.values[actividadIndex];
-    
-    // --- 2. AVISAMOS QUE LA CARGA HA TERMINADO ---
+  void setInitialProfile(Profile? profile) {
+    _profile = profile;
     _isLoading = false;
     notifyListeners();
   }
 
   Future<void> guardarPerfil({
     required String nombre,
-    required int edad,
-    required double altura,
-    required double peso,
-    required Sexo sexo,
-    required NivelActividad nivelActividad,
+    int? edad,
+    double? altura,
+    double? peso,
+    Sexo? sexo,
+    NivelActividad? nivelActividad,
     String? imagePath,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('nombre', nombre);
-    await prefs.setInt('edad', edad);
-    await prefs.setDouble('altura', altura);
-    await prefs.setDouble('peso', peso);
-    await prefs.setInt('sexo', sexo.index);
-    await prefs.setInt('nivelActividad', nivelActividad.index);
-    if (imagePath != null) {
-      await prefs.setString('imagePath', imagePath);
+    // La meta de peso y calorías ahora se guardan por separado
+    if (_profile == null) {
+      if (edad != null && altura != null && peso != null && sexo != null && nivelActividad != null) {
+        _profile = Profile(
+          name: nombre, age: edad, height: altura, currentWeight: peso,
+          sex: sexo, activityLevel: nivelActividad, imagePath: imagePath,
+        );
+      } else { return; }
+    } else {
+      _profile = _profile!.copyWith(
+        name: nombre, age: edad, height: altura, currentWeight: peso,
+        sex: sexo, activityLevel: nivelActividad, imagePath: imagePath ?? _profile!.imagePath,
+      );
     }
-    await cargarPerfil();
+    notifyListeners();
   }
-  
-  Future<void> actualizarPeso(double nuevoPeso) async {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setDouble('peso', nuevoPeso);
-      _peso = nuevoPeso;
+
+  // ¡NUEVO! Método específico para guardar metas
+  Future<void> guardarMetas({double? metaPeso, double? metaCalorias}) async {
+    if (_profile != null) {
+      _profile = _profile!.copyWith(
+        weightGoal: metaPeso,
+        calorieGoal: metaCalorias,
+      );
       notifyListeners();
+    }
+  }
+
+  Future<void> actualizarPesoActual(double nuevoPeso) async {
+    if (_profile != null) {
+      _profile = _profile!.copyWith(currentWeight: nuevoPeso);
+      notifyListeners();
+    }
+  }
+
+  void setProfile(Profile newProfile) {
+    _profile = newProfile;
+    notifyListeners();
+  }
+
+  void loadProfileFromMap(Map<String, dynamic> map) {
+    _profile = Profile.fromJson(map);
+    notifyListeners();
+  }
+
+  void clearProfile() {
+    _profile = null;
+    notifyListeners();
   }
 
   double get bmr {
-    if (_peso == null || _altura == null || _edad == null || _sexo == null) return 0;
-    if (_sexo == Sexo.masculino) {
-      return (10 * _peso!) + (6.25 * _altura!) - (5 * _edad!) + 5;
+    if (_profile == null) return 0;
+    if (_profile!.sex == Sexo.masculino) {
+      return (10 * _profile!.currentWeight) + (6.25 * _profile!.height) - (5 * _profile!.age) + 5;
     } else {
-      return (10 * _peso!) + (6.25 * _altura!) - (5 * _edad!) - 161;
+      return (10 * _profile!.currentWeight) + (6.25 * _profile!.height) - (5 * _profile!.age) - 161;
     }
   }
 
-  double get caloriasRecomendadas {
-    if (_nivelActividad == null) return bmr;
-    double multiplicador = 1.2;
-    switch (_nivelActividad!) {
+  double calculateCaloriasRecomendadas() {
+    if (_profile == null) return 2000;
+    double multiplicador;
+    switch (_profile!.activityLevel) {
+      case NivelActividad.sedentario: multiplicador = 1.2; break;
       case NivelActividad.ligero: multiplicador = 1.375; break;
       case NivelActividad.moderado: multiplicador = 1.55; break;
       case NivelActividad.activo: multiplicador = 1.725; break;
-      case NivelActividad.sedentario:
-      default: multiplicador = 1.2;
+      case NivelActividad.muyActivo: multiplicador = 1.9; break;
     }
     return bmr * multiplicador;
+  }
+
+  double? get imc {
+    if (_profile == null || _profile!.height == 0) return null;
+    final alturaEnMetros = _profile!.height / 100.0;
+    return _profile!.currentWeight / (alturaEnMetros * alturaEnMetros);
+  }
+
+  String get imcInterpretation {
+    final val = imc;
+    if (val == null) return "Datos incompletos";
+    if (val < 18.5) return "Bajo peso";
+    if (val < 25) return "Peso saludable";
+    if (val < 30) return "Sobrepeso";
+    return "Obesidad";
   }
 }

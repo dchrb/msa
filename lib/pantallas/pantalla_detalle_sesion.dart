@@ -5,7 +5,6 @@ import 'package:msa/models/sesion_entrenamiento.dart';
 import 'package:msa/pantallas/pantalla_registro_sesion.dart';
 import 'package:msa/providers/entrenamiento_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:msa/models/detalle_ejercicio.dart';
 import 'package:msa/models/serie.dart';
 
 class PantallaDetalleSesion extends StatelessWidget {

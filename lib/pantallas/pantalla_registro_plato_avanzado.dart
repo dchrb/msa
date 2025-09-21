@@ -1,378 +1,247 @@
-// lib/pantallas/pantalla_registro_plato_avanzado.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:msa/models/alimento.dart';
 import 'package:msa/models/plato.dart';
-import 'package:msa/providers/nutricion_provider.dart';
+import 'package:msa/models/alimento.dart';
 import 'package:msa/providers/food_provider.dart';
 import 'package:msa/providers/insignia_provider.dart';
-import 'package:msa/providers/water_provider.dart';
-import 'package:msa/providers/entrenamiento_provider.dart';
+import 'package:msa/pantallas/pantalla_mis_alimentos.dart';
 import 'package:uuid/uuid.dart';
-import 'package:msa/widgets/formulario_registro_alimento.dart';
 
 class PantallaRegistroPlatoAvanzado extends StatefulWidget {
-  const PantallaRegistroPlatoAvanzado({super.key});
+  final Plato? plato; 
+  final TipoPlato? tipoPlatoInicial;
+
+  const PantallaRegistroPlatoAvanzado({super.key, this.plato, this.tipoPlatoInicial});
 
   @override
   State<PantallaRegistroPlatoAvanzado> createState() => _PantallaRegistroPlatoAvanzadoState();
 }
 
 class _PantallaRegistroPlatoAvanzadoState extends State<PantallaRegistroPlatoAvanzado> {
-  final _alimentoController = TextEditingController();
-  final _cantidadController = TextEditingController(text: '100');
-  final List<Alimento> _alimentosAgregados = [];
-  TipoPlato _tipoSeleccionado = TipoPlato.almuerzo;
-  
-  double _totalCalorias = 0.0;
-  double _totalProteinas = 0.0;
-  double _totalCarbs = 0.0;
-  double _totalGrasas = 0.0;
-  
-  Alimento? _alimentoSeleccionado;
-  List<Alimento> _resultadosBusqueda = [];
+  final _formKey = GlobalKey<FormState>();
+  late Plato _platoActual;
+  bool _isEdit = false;
+  final _uuid = const Uuid();
 
   @override
   void initState() {
     super.initState();
-  }
-
-  @override
-  void dispose() {
-    _alimentoController.dispose();
-    _cantidadController.dispose();
-    super.dispose();
-  }
-
-  void _calcularTotales() {
-    _totalCalorias = _alimentosAgregados.fold(0.0, (sum, item) => sum + item.calorias);
-    _totalProteinas = _alimentosAgregados.fold(0.0, (sum, item) => sum + item.proteinas);
-    _totalCarbs = _alimentosAgregados.fold(0.0, (sum, item) => sum + item.carbohidratos);
-    _totalGrasas = _alimentosAgregados.fold(0.0, (sum, item) => sum + item.grasas);
-  }
-
-  void _buscarAlimentos(String busqueda) async {
-    final foodProvider = context.read<FoodProvider>();
-    final nutricionProvider = context.read<NutricionProvider>();
-
-    final alimentosManuales = foodProvider.alimentosManuales
-        .where((alimento) => alimento.nombre.toLowerCase().contains(busqueda.toLowerCase()))
-        .toList();
-
-    setState(() {
-      _resultadosBusqueda = alimentosManuales;
-    });
-
-    await nutricionProvider.buscarAlimentos(busqueda);
-    setState(() {
-      _resultadosBusqueda.addAll(nutricionProvider.alimentosEncontrados);
-    });
-  }
-
-  Future<void> _agregarAlimentoSeleccionado() async {
-    if (_alimentoSeleccionado == null || _cantidadController.text.isEmpty) {
-      return;
-    }
-
-    final cantidad = double.tryParse(_cantidadController.text);
-    if (cantidad == null || cantidad <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, ingresa una cantidad válida.')),
-      );
-      return;
-    }
-    
-    Alimento? infoNutricional;
-    if (_alimentoSeleccionado!.esManual) {
-      infoNutricional = Alimento(
-        nombre: _alimentoSeleccionado!.nombre,
-        calorias: (_alimentoSeleccionado!.calorias / 100) * cantidad,
-        proteinas: (_alimentoSeleccionado!.proteinas / 100) * cantidad,
-        carbohidratos: (_alimentoSeleccionado!.carbohidratos / 100) * cantidad,
-        grasas: (_alimentoSeleccionado!.grasas / 100) * cantidad,
-        porcionGramos: cantidad,
-        esManual: true,
-        idApi: _alimentoSeleccionado!.idApi,
-      );
+    _isEdit = widget.plato != null;
+    if (_isEdit) {
+      _platoActual = widget.plato!;
     } else {
-      final nutricionProvider = context.read<NutricionProvider>();
-      infoNutricional = await nutricionProvider.getInfoNutricional(_alimentoSeleccionado!.idApi!, cantidad);
-    }
-
-    if (infoNutricional != null) {
-      setState(() {
-        _alimentosAgregados.add(infoNutricional!);
-        _calcularTotales();
-        _alimentoController.clear();
-        _cantidadController.text = '100';
-        _alimentoSeleccionado = null;
-        _resultadosBusqueda.clear();
-      });
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo obtener la información nutricional.')),
+      _platoActual = Plato(
+        id: _uuid.v4(),
+        tipo: widget.tipoPlatoInicial ?? TipoPlato.desayuno,
+        fecha: DateTime.now(),
+        alimentos: [],
+        totalCalorias: 0,
       );
     }
   }
 
   void _guardarPlato() {
-    if (_alimentosAgregados.isEmpty) {
+    if (_platoActual.alimentos.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, agrega al menos un alimento.')),
+        const SnackBar(content: Text('Añade al menos un alimento al plato')),
       );
       return;
     }
-    
+
     final foodProvider = context.read<FoodProvider>();
-    final nuevoPlato = Plato(
-      id: const Uuid().v4(),
-      tipo: _tipoSeleccionado,
-      fecha: DateTime.now(),
-      alimentos: _alimentosAgregados,
-      totalCalorias: _totalCalorias,
-    );
-    foodProvider.agregarPlato(nuevoPlato.tipo, nuevoPlato.alimentos, nuevoPlato.fecha);
-    
-    context.read<InsigniaProvider>().verificarHabitoTrio(
-      context,
-      context.read<WaterProvider>(),
-      context.read<FoodProvider>(),
-      context.read<EntrenamientoProvider>(),
-    );
-    
-    Navigator.of(context).pop();
+    if (_isEdit) {
+      foodProvider.editarPlato(_platoActual);
+    } else {
+      foodProvider.agregarPlato(
+        tipo: _platoActual.tipo,
+        alimentos: _platoActual.alimentos,
+        fecha: _platoActual.fecha,
+      );
+    }
+
+    final insigniaProvider = context.read<InsigniaProvider>();
+    insigniaProvider.verificarInsigniasPorRegistroDeComida(_platoActual);
+
+    Navigator.of(context).pop(true);
   }
 
-  void _mostrarDialogoAnadirAlimento() {
+  void _mostrarDialogoAlimento([Alimento? alimentoExistente]) {
+    final isEditingAlimento = alimentoExistente != null;
+    final formAlimentoKey = GlobalKey<FormState>();
+    final Alimento alimento = isEditingAlimento 
+      ? Alimento.fromJson(alimentoExistente.toJson()) 
+      : Alimento(id: _uuid.v4(), nombre: '', calorias: 0, proteinas: 0, carbohidratos: 0, grasas: 0);
+
     showDialog(
       context: context,
-      builder: (ctx) => FormularioRegistroAlimento(
-        onSave: (nuevoAlimento) {
-          context.read<FoodProvider>().agregarAlimentoManual(nuevoAlimento);
-          ScaffoldMessenger.of(ctx).showSnackBar(
-            SnackBar(content: Text('${nuevoAlimento.nombre} guardado.')),
-          );
-          // Refrescar la pantalla para que el nuevo alimento aparezca en la búsqueda
-          setState(() {
-            _alimentoController.text = nuevoAlimento.nombre;
-            _buscarAlimentos(nuevoAlimento.nombre);
-          });
-        },
+      builder: (context) {
+        return AlertDialog(
+          title: Text(isEditingAlimento ? 'Editar Alimento' : 'Añadir Alimento'),
+          content: Form(
+            key: formAlimentoKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    initialValue: alimento.nombre,
+                    decoration: const InputDecoration(labelText: 'Nombre'),
+                    validator: (value) => value!.isEmpty ? 'Campo requerido' : null,
+                    onSaved: (value) => alimento.nombre = value!,
+                  ),
+                  TextFormField(
+                    initialValue: alimento.calorias.toString(),
+                    decoration: const InputDecoration(labelText: 'Calorías'),
+                    keyboardType: TextInputType.number,
+                    validator: (value) => value!.isEmpty ? 'Campo requerido' : null,
+                    onSaved: (value) => alimento.calorias = double.tryParse(value!) ?? 0.0,
+                  ),
+                  // Campos para Proteínas, Carbohidratos, Grasas...
+                  TextFormField(
+                    initialValue: alimento.proteinas.toString(),
+                    decoration: const InputDecoration(labelText: 'Proteínas (g)'),
+                    keyboardType: TextInputType.number,
+                    onSaved: (value) => alimento.proteinas = double.tryParse(value!) ?? 0.0,
+                  ),
+                  TextFormField(
+                    initialValue: alimento.carbohidratos.toString(),
+                    decoration: const InputDecoration(labelText: 'Carbohidratos (g)'),
+                    keyboardType: TextInputType.number,
+                    onSaved: (value) => alimento.carbohidratos = double.tryParse(value!) ?? 0.0,
+                  ),
+                  TextFormField(
+                    initialValue: alimento.grasas.toString(),
+                    decoration: const InputDecoration(labelText: 'Grasas (g)'),
+                    keyboardType: TextInputType.number,
+                    onSaved: (value) => alimento.grasas = double.tryParse(value!) ?? 0.0,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
+            ElevatedButton(
+              onPressed: () {
+                if (formAlimentoKey.currentState!.validate()) {
+                  formAlimentoKey.currentState!.save();
+                  setState(() {
+                    if (isEditingAlimento) {
+                      final index = _platoActual.alimentos.indexWhere((a) => a.id == alimento.id);
+                      if (index != -1) {
+                        _platoActual.alimentos[index] = alimento;
+                      }
+                    } else {
+                      _platoActual.alimentos.add(alimento);
+                    }
+                  });
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _seleccionarAlimentoGuardado() async {
+    final Alimento? alimentoSeleccionado = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const PantallaMisAlimentos(),
       ),
     );
+
+    if (alimentoSeleccionado != null) {
+      setState(() {
+        _platoActual.alimentos.add(alimentoSeleccionado);
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Registro de Comida Avanzado'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _guardarPlato,
-          ),
-        ],
+        title: Text(_isEdit ? 'Editar Plato' : 'Registrar Plato'),
+        actions: [IconButton(icon: const Icon(Icons.save), onPressed: _guardarPlato)],
       ),
-      body: SingleChildScrollView(
+      body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildBuscadorAlimentos(context),
-            const SizedBox(height: 24),
-            
-            _buildListaAlimentos(),
-            const SizedBox(height: 24),
-
-            _buildTotalesNutricionales(),
-            const SizedBox(height: 24),
-
-            _buildSelectorTipoPlato(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBuscadorAlimentos(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _alimentoController,
-                decoration: InputDecoration(
-                  labelText: 'Buscar alimento',
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.search),
-                    onPressed: () {
-                      if (_alimentoController.text.isNotEmpty) {
-                        _buscarAlimentos(_alimentoController.text);
-                      }
-                    },
-                  ),
-                ),
-                onSubmitted: (value) {
-                  if (value.isNotEmpty) {
-                    _buscarAlimentos(value);
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              DropdownButtonFormField<TipoPlato>(
+                initialValue: _platoActual.tipo,
+                items: TipoPlato.values
+                    .map((tipo) => DropdownMenuItem(value: tipo, child: Text(tipo.toString().split('.').last)))
+                    .toList(),
+                onChanged: (value) => setState(() => _platoActual.tipo = value!),
+                decoration: const InputDecoration(labelText: 'Tipo de Comida'),
+              ),
+              ListTile(
+                title: Text("Fecha: ${MaterialLocalizations.of(context).formatShortDate(_platoActual.fecha)}"),
+                trailing: const Icon(Icons.calendar_today),
+                onTap: () async {
+                  final DateTime? picked = await showDatePicker(
+                    context: context,
+                    initialDate: _platoActual.fecha,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2101),
+                  );
+                  if (picked != null && picked != _platoActual.fecha) {
+                    setState(() => _platoActual.fecha = picked);
                   }
                 },
               ),
-            ),
-            const SizedBox(width: 16),
-            SizedBox(
-              width: 80,
-              child: TextField(
-                controller: _cantidadController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Gramos',
-                ),
-              ),
-            ),
-          ],
-        ),
-        Consumer<NutricionProvider>(
-          builder: (context, nutricionProvider, child) {
-            if (nutricionProvider.isSearching) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (_resultadosBusqueda.isNotEmpty) {
-              return SizedBox(
-                height: 200,
+              const SizedBox(height: 20),
+              Text('Alimentos', style: Theme.of(context).textTheme.titleLarge),
+              Expanded(
                 child: ListView.builder(
-                  itemCount: _resultadosBusqueda.length,
+                  itemCount: _platoActual.alimentos.length,
                   itemBuilder: (context, index) {
-                    final alimento = _resultadosBusqueda[index];
+                    final alimento = _platoActual.alimentos[index];
                     return ListTile(
-                      leading: alimento.esManual ? const Icon(Icons.person) : null,
                       title: Text(alimento.nombre),
-                      subtitle: Text('${alimento.calorias.toStringAsFixed(0)} kcal por 100g'),
-                      onTap: () {
-                        setState(() {
-                          _alimentoSeleccionado = alimento;
-                          _alimentoController.text = alimento.nombre;
-                        });
-                      },
+                      subtitle: Text('${alimento.calorias.toStringAsFixed(1)} kcal'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(icon: const Icon(Icons.edit), onPressed: () => _mostrarDialogoAlimento(alimento)),
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () => setState(() => _platoActual.alimentos.removeAt(index)),
+                          ),
+                        ],
+                      ),
                     );
                   },
                 ),
-              );
-            }
-            
-            // Condición para mostrar el botón de agregar manualmente si no hay resultados
-            return Padding(
-              padding: const EdgeInsets.only(top: 16.0),
-              child: Column(
-                children: [
-                  const Text('No se encontraron resultados. ¿Quieres añadirlo manualmente?', textAlign: TextAlign.center,),
-                  const SizedBox(height: 10),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.add),
-                    label: const Text('Añadir alimento manualmente'),
-                    onPressed: _mostrarDialogoAnadirAlimento,
-                  ),
-                ],
               ),
-            );
-          },
-        ),
-        const SizedBox(height: 16),
-        ElevatedButton(
-          onPressed: _alimentoSeleccionado != null ? _agregarAlimentoSeleccionado : null,
-          child: const Text('Agregar al plato'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildListaAlimentos() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Alimentos en tu plato (${_alimentosAgregados.length})',
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        if (_alimentosAgregados.isEmpty)
-          const Text('Aún no has agregado alimentos.')
-        else
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _alimentosAgregados.length,
-            itemBuilder: (context, index) {
-              final alimento = _alimentosAgregados[index];
-              return ListTile(
-                title: Text(alimento.nombre),
-                subtitle: Text('${alimento.calorias.toStringAsFixed(0)} kcal'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete),
-                  onPressed: () {
-                    setState(() {
-                      _alimentosAgregados.removeAt(index);
-                      _calcularTotales();
-                    });
-                  },
-                ),
-              );
-            },
+            ],
           ),
-      ],
-    );
-  }
-
-  Widget _buildTotalesNutricionales() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Totales Nutricionales',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text('Calorías: ${_totalCalorias.toStringAsFixed(0)} kcal'),
-            Text('Proteínas: ${_totalProteinas.toStringAsFixed(1)} g'),
-            Text('Carbohidratos: ${_totalCarbs.toStringAsFixed(1)} g'),
-            Text('Grasas: ${_totalGrasas.toStringAsFixed(1)} g'),
-          ],
         ),
       ),
-    );
-  }
-
-  Widget _buildSelectorTipoPlato() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Tipo de Comida', style: TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<TipoPlato>(
-          value: _tipoSeleccionado,
-          items: TipoPlato.values.map((tipo) {
-            return DropdownMenuItem(
-              value: tipo,
-              child: Text(tipo.toString().split('.').last),
-            );
-          }).toList(),
-          onChanged: (value) {
-            if (value != null) {
-              setState(() {
-                _tipoSeleccionado = value;
-              });
-            }
-          },
-        ),
-      ],
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton.extended(
+            onPressed: _seleccionarAlimentoGuardado,
+            label: const Text('Desde Mis Alimentos'),
+            icon: const Icon(Icons.storage),
+            heroTag: 'select_food',
+          ),
+          const SizedBox(height: 10),
+          FloatingActionButton.extended(
+            onPressed: () => _mostrarDialogoAlimento(),
+            label: const Text('Añadir Nuevo'),
+            icon: const Icon(Icons.add),
+            heroTag: 'add_food',
+          ),
+        ],
+      ),
     );
   }
 }

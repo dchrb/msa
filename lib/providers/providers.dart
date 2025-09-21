@@ -1,0 +1,14 @@
+export 'consumo_provider.dart';
+export 'dieta_provider.dart';
+export 'entrenamiento_provider.dart';
+export 'food_provider.dart';
+export 'insignia_provider.dart';
+export 'medida_provider.dart';
+export 'nutricion_provider.dart';
+export 'profile_provider.dart';
+export 'racha_provider.dart';
+export 'receta_provider.dart';
+export 'recordatorio_provider.dart';
+export 'sync_provider.dart';
+export 'theme_provider.dart';
+export 'water_provider.dart';

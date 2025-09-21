@@ -9,14 +9,14 @@ class PantallaComidasTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // CAMBIO: Se eliminó el Scaffold y el AppBar para quitar la barra duplicada.
-    // Ahora, este widget solo organiza las pestañas internas.
+    // --- FIX: Se envuelve el contenido en un nuevo DefaultTabController ---
+    // Esto es necesario porque este widget tiene su propio conjunto de pestañas
+    // y necesita su propio controlador, independiente del de la pantalla padre.
     return DefaultTabController(
       length: 2,
       child: Column(
         children: [
           TabBar(
-            // Se ajustan los colores para que se vean bien sin AppBar
             labelColor: Theme.of(context).colorScheme.primary,
             unselectedLabelColor: Colors.grey,
             indicatorColor: Theme.of(context).colorScheme.primary,

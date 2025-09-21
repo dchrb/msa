@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:msa/models/plato.dart';
 import 'package:msa/providers/food_provider.dart';
 import 'package:msa/pantallas/pantalla_registro_plato_avanzado.dart';
 import 'package:provider/provider.dart';
@@ -72,7 +71,9 @@ class _PantallaHistorialComidasState extends State<PantallaHistorialComidas> {
                                 onPressed: () {
                                   Navigator.push(
                                     context,
-                                    MaterialPageRoute(builder: (context) => const PantallaRegistroPlatoAvanzado()),
+                                    MaterialPageRoute(
+                                      builder: (context) => PantallaRegistroPlatoAvanzado(plato: plato),
+                                    ),
                                   );
                                 },
                               ),
@@ -110,14 +111,30 @@ class _PantallaHistorialComidasState extends State<PantallaHistorialComidas> {
   }
 
   Widget _buildSummaryCards(FoodProvider provider) {
+    final hoy = DateTime.now();
+    final fechaHoy = DateTime(hoy.year, hoy.month, hoy.day);
+    final inicioMes = DateTime(hoy.year, hoy.month, 1);
+    
+    final caloriasHoy = provider.getCaloriasConsumidasPorFecha(fechaHoy);
+
+    double caloriasSemana = 0;
+    for (int i = 0; i < 7; i++) {
+      final fecha = DateTime.now().subtract(Duration(days: i));
+      caloriasSemana += provider.getCaloriasConsumidasPorFecha(fecha);
+    }
+
+    final caloriasMes = provider.allPlatos
+      .where((p) => !p.fecha.isBefore(inicioMes))
+      .fold<double>(0, (sum, p) => sum + p.totalCalorias);
+
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _summaryCard("Hoy", "${provider.getCaloriasPorFecha(DateTime.now()).toStringAsFixed(0)} kcal"),
-          _summaryCard("Semana", "${provider.getCaloriasSemanaActual().toStringAsFixed(0)} kcal"),
-          _summaryCard("Mes", "${provider.getCaloriasMesActual().toStringAsFixed(0)} kcal"),
+          _summaryCard("Hoy", "${caloriasHoy.toStringAsFixed(0)} kcal"),
+          _summaryCard("Semana", "${caloriasSemana.toStringAsFixed(0)} kcal"),
+          _summaryCard("Mes", "${caloriasMes.toStringAsFixed(0)} kcal"),
         ],
       ),
     );

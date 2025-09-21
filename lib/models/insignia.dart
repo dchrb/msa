@@ -1,21 +1,23 @@
-// lib/models/insignia.dart
+import 'package:hive/hive.dart';
 
-import 'package:flutter/material.dart';
+part 'insignia.g.dart';
 
-class Insignia {
+@HiveType(typeId: 15) // Un ID de tipo único para Hive
+class Insignia extends HiveObject {
+
+  @HiveField(0)
   final String id;
-  final String nombre;
-  final String descripcion;
-  final IconData icono;
-  bool obtenida;
-  final bool esDiaria;
+
+  @HiveField(1)
+  int nivelAlcanzado;
+
+  // Este es el modelo de datos puro que se guarda en la base de datos.
+  // Solo necesitamos saber QUÉ insignia es (el id) y QUÉ nivel ha alcanzado el usuario.
+  // Toda la lógica compleja (nombre, descripción, progreso, etc.)
+  // se gestionará en el InsigniaProvider basándose en este 'id'.
 
   Insignia({
     required this.id,
-    required this.nombre,
-    required this.descripcion,
-    required this.icono,
-    this.obtenida = false,
-    this.esDiaria = false,
+    this.nivelAlcanzado = 0,
   });
 }

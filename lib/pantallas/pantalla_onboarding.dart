@@ -1,14 +1,14 @@
-// lib/pantallas/pantalla_onboarding.dart
 
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:msa/pantallas/pantalla_inicio.dart';
-import 'package:msa/providers/insignia_provider.dart';
+// import 'package:msa/providers/insignia_provider.dart';
 import 'package:msa/providers/profile_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+import 'package:msa/models/profile.dart'; // Importación corregida
 
 class PantallaOnboarding extends StatefulWidget {
   const PantallaOnboarding({super.key});
@@ -46,10 +46,11 @@ class _PantallaOnboardingState extends State<PantallaOnboarding> {
     }
   }
 
-  void _guardarYContinuar() {
-    if (_formKey.currentState!.validate()) {
+  Future<void> _guardarYContinuar() async {
+    if (_formKey.currentState?.validate() ?? false) {
       final profileProvider = context.read<ProfileProvider>();
-      profileProvider.guardarPerfil(
+      
+      await profileProvider.guardarPerfil(
         nombre: _nombreController.text,
         edad: int.parse(_edadController.text),
         altura: double.parse(_alturaController.text),
@@ -57,12 +58,14 @@ class _PantallaOnboardingState extends State<PantallaOnboarding> {
         sexo: _sexoSeleccionado!,
         nivelActividad: _actividadSeleccionada!,
         imagePath: _imagenSeleccionada?.path,
-      ).then((_) {
-        // La llamada a la insignia ya está aquí, lo cual es correcto
-        context.read<InsigniaProvider>().verificarInsigniaDePerfil(context);
+      );
 
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const PantallaInicio()));
-      });
+      if (!mounted) return;
+
+      // La llamada a la insignia ya está aquí, lo cual es correcto
+      // context.read<InsigniaProvider>().verificarInsigniaDePerfil(context);
+
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const PantallaInicio()));
     }
   }
   
@@ -162,17 +165,17 @@ class _PantallaOnboardingState extends State<PantallaOnboarding> {
             ),
           ),
           const SizedBox(height: 24),
-          TextFormField(controller: _nombreController, decoration: const InputDecoration(labelText: 'Nombre'), validator: (v) => v!.isEmpty ? 'Requerido' : null),
+          TextFormField(controller: _nombreController, decoration: const InputDecoration(labelText: 'Nombre'), validator: (v) => (v == null || v.isEmpty) ? 'Requerido' : null),
           const SizedBox(height: 16),
-          TextFormField(controller: _edadController, decoration: const InputDecoration(labelText: 'Edad'), keyboardType: TextInputType.number, validator: (v) => v!.isEmpty ? 'Requerido' : null),
+          TextFormField(controller: _edadController, decoration: const InputDecoration(labelText: 'Edad'), keyboardType: TextInputType.number, validator: (v) => (v == null || v.isEmpty) ? 'Requerido' : null),
           const SizedBox(height: 16),
-          TextFormField(controller: _alturaController, decoration: const InputDecoration(labelText: 'Altura (cm)'), keyboardType: TextInputType.number, validator: (v) => v!.isEmpty ? 'Requerido' : null),
+          TextFormField(controller: _alturaController, decoration: const InputDecoration(labelText: 'Altura (cm)'), keyboardType: TextInputType.number, validator: (v) => (v == null || v.isEmpty) ? 'Requerido' : null),
           const SizedBox(height: 16),
-          TextFormField(controller: _pesoController, decoration: const InputDecoration(labelText: 'Peso (kg)'), keyboardType: TextInputType.number, validator: (v) => v!.isEmpty ? 'Requerido' : null),
+          TextFormField(controller: _pesoController, decoration: const InputDecoration(labelText: 'Peso (kg)'), keyboardType: TextInputType.number, validator: (v) => (v == null || v.isEmpty) ? 'Requerido' : null),
           const SizedBox(height: 16),
-          DropdownButtonFormField<Sexo>(value: _sexoSeleccionado, hint: const Text("Sexo"), items: Sexo.values.map((s) => DropdownMenuItem(value: s, child: Text(s.name))).toList(), onChanged: (v) => setState(() => _sexoSeleccionado = v), validator: (v) => v == null ? 'Requerido' : null),
+          DropdownButtonFormField<Sexo>(initialValue: _sexoSeleccionado, hint: const Text("Sexo"), items: Sexo.values.map((s) => DropdownMenuItem(value: s, child: Text(s.toString().split('.').last))).toList(), onChanged: (v) => setState(() => _sexoSeleccionado = v), validator: (v) => v == null ? 'Requerido' : null),
           const SizedBox(height: 16),
-          DropdownButtonFormField<NivelActividad>(value: _actividadSeleccionada, hint: const Text("Nivel de Actividad"), items: NivelActividad.values.map((a) => DropdownMenuItem(value: a, child: Text(a.name))).toList(), onChanged: (v) => setState(() => _actividadSeleccionada = v), validator: (v) => v == null ? 'Requerido' : null),
+          DropdownButtonFormField<NivelActividad>(initialValue: _actividadSeleccionada, hint: const Text("Nivel de Actividad"), items: NivelActividad.values.map((a) => DropdownMenuItem(value: a, child: Text(a.toString().split('.').last.replaceAll('_', ' ')))).toList(), onChanged: (v) => setState(() => _actividadSeleccionada = v), validator: (v) => v == null ? 'Requerido' : null),
           const SizedBox(height: 32),
           ElevatedButton(
             onPressed: _guardarYContinuar,

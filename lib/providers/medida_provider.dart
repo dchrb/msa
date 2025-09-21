@@ -1,120 +1,94 @@
-// lib/providers/medida_provider.dart
-
-import 'package:flutter/foundation.dart'; 
-import 'package:msa/models/medida.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
+import 'package:collection/collection.dart';
+
+import 'package:msa/models/medida.dart';
+import 'package:msa/providers/sync_provider.dart';
 
 class MedidaProvider with ChangeNotifier {
-  Map<String, dynamic> _perfil = {};
+  SyncProvider? _syncProvider;
   late Box<Medida> _medidasBox;
-  bool _isLoading = true;
-  double? _metaPeso; // Nuevo campo para la meta de peso
+  bool _isInitialized = false;
+  final Uuid _uuid = const Uuid();
 
-  Map<String, dynamic> get perfil => _perfil;
+  bool get isInitialized => _isInitialized;
   List<Medida> get registros => _medidasBox.values.toList()..sort((a, b) => b.fecha.compareTo(a.fecha));
-  bool get isLoading => _isLoading;
-  double? get metaPeso => _metaPeso;
 
   MedidaProvider() {
-    cargarDatos();
+    _init();
   }
 
-  Future<void> cargarDatos() async {
-    final prefs = await SharedPreferences.getInstance();
-    _perfil = {
-      'nombre': prefs.getString('perfil_nombre'),
-      'edad': prefs.getInt('perfil_edad'),
-      'sexo': prefs.getString('perfil_sexo'),
-      'altura': prefs.getDouble('perfil_altura'),
-    };
-    
-    _medidasBox = Hive.box<Medida>('medidasBox');
-    _metaPeso = prefs.getDouble('meta_peso'); // Cargar la meta de peso
-    
-    _isLoading = false;
+  Future<void> _init() async {
+    _medidasBox = await Hive.openBox<Medida>('medidasBox');
+    _isInitialized = true;
+    _medidasBox.listenable().addListener(notifyListeners);
     notifyListeners();
   }
 
-  Future<void> guardarPerfil(Map<String, dynamic> nuevoPerfil) async {
-    _perfil = nuevoPerfil;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('perfil_nombre', nuevoPerfil['nombre'] as String);
-    await prefs.setInt('perfil_edad', nuevoPerfil['edad'] as int);
-    await prefs.setString('perfil_sexo', nuevoPerfil['sexo'] as String);
-    await prefs.setDouble('perfil_altura', nuevoPerfil['altura'] as double);
-    notifyListeners();
+  void updateSyncProvider(SyncProvider? syncProvider) {
+    _syncProvider = syncProvider;
   }
 
-  void agregarMedida({
-    required double peso,
-    required double altura,
-    double? pecho,
-    double? brazo,
-    double? cintura,
-    double? caderas,
-    double? muslo,
-  }) {
-    final nuevaMedida = Medida(
-      id: const Uuid().v4(),
-      fecha: DateTime.now(),
-      peso: peso,
-      altura: altura,
-      pecho: pecho,
-      brazo: brazo,
-      cintura: cintura,
-      caderas: caderas,
-      muslo: muslo,
-    );
-    _medidasBox.put(nuevaMedida.id, nuevaMedida);
+  DateTime _normalizeDate(DateTime date) => DateTime(date.year, date.month, date.day);
 
-    // Lógica para verificar si se cumple el objetivo de peso
-    if (_metaPeso != null && peso <= _metaPeso!) {
-      // La lógica para otorgar la insignia 'peso_meta_1'
-      // se hará en la pantalla, ya que necesita el contexto.
+  Future<void> agregarMedidas(Map<String, double> medidas, DateTime fecha) async {
+    final fechaNormalizada = _normalizeDate(fecha);
+
+    for (var entry in medidas.entries) {
+      final tipo = entry.key;
+      final valor = entry.value;
+
+      // Busca si ya existe una medida de este tipo para esta fecha.
+      final medidaExistente = _medidasBox.values.firstWhereOrNull(
+        (m) => m.tipo == tipo && _normalizeDate(m.fecha) == fechaNormalizada
+      );
+
+      if (medidaExistente != null) {
+        // Si existe, actualízala.
+        medidaExistente.valor = valor;
+        await _medidasBox.put(medidaExistente.key, medidaExistente);
+        _syncProvider?.syncDocumentToFirestore('medidas', medidaExistente.key as String, medidaExistente.toJson());
+      } else {
+        // Si no existe, crea una nueva.
+        final nuevaMedida = Medida(
+          id: _uuid.v4(),
+          fecha: fechaNormalizada,
+          tipo: tipo,
+          valor: valor,
+        );
+        await _medidasBox.put(nuevaMedida.id, nuevaMedida);
+        _syncProvider?.syncDocumentToFirestore('medidas', nuevaMedida.id, nuevaMedida.toJson());
+      }
     }
-    
-    notifyListeners();
-  }
-  
-  void editarMedida(String id, {
-    required double peso,
-    required double altura,
-    double? pecho,
-    double? brazo,
-    double? cintura,
-    double? caderas,
-    double? muslo,
-  }) {
-    final medidaAEditar = _medidasBox.get(id);
-    if (medidaAEditar != null) {
-      medidaAEditar.peso = peso;
-      medidaAEditar.altura = altura;
-      medidaAEditar.pecho = pecho;
-      medidaAEditar.brazo = brazo;
-      medidaAEditar.cintura = cintura;
-      medidaAEditar.caderas = caderas;
-      medidaAEditar.muslo = muslo;
-      medidaAEditar.save();
-    }
-    notifyListeners();
   }
 
-  void eliminarMedida(String id) {
-    _medidasBox.delete(id);
-    notifyListeners();
+  Future<void> editarMedida(Medida medida) async {
+    await _medidasBox.put(medida.key, medida);
+    _syncProvider?.syncDocumentToFirestore('medidas', medida.key as String, medida.toJson());
   }
-  
-  // Nuevo método para establecer la meta de peso
-  Future<void> setMetaPeso(double? peso) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (peso != null) {
-      await prefs.setDouble('meta_peso', peso);
-    } else {
-      await prefs.remove('meta_peso');
-    }
-    _metaPeso = peso;
-    notifyListeners();
+
+  Future<void> eliminarMedida(dynamic key) async {
+    await _medidasBox.delete(key);
+    _syncProvider?.deleteDocumentFromFirestore('medidas', key as String);
+  }
+
+  Medida? getUltimaMedida() {
+    return registros.firstOrNull;
+  }
+
+  Medida? getPenultimaMedida() {
+    final regs = registros;
+    return regs.length > 1 ? regs[1] : null;
+  }
+
+  Medida? getUltimaMedidaPorTipo(String tipo) {
+    return registros.firstWhereOrNull((m) => m.tipo == tipo);
+  }
+
+  Future<void> replaceAll(List<Medida> medidas) async {
+    await _medidasBox.clear();
+    final Map<dynamic, Medida> medidasMap = { for (var m in medidas) m.id : m };
+    await _medidasBox.putAll(medidasMap);
   }
 }

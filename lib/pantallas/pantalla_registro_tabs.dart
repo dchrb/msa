@@ -22,7 +22,7 @@ class PantallaRegistroTabs extends StatelessWidget {
           title: const Text('Registrar Actividades'),
           bottom: TabBar(
             labelColor: colors.onPrimary,
-            unselectedLabelColor: colors.onPrimary.withOpacity(0.7),
+            unselectedLabelColor: colors.onPrimary.withAlpha(178),
             indicatorColor: colors.onPrimary,
             tabs: const [
               Tab(icon: Icon(Icons.local_drink), text: 'Agua'),

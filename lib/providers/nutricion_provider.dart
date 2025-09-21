@@ -81,7 +81,7 @@ class NutricionProvider with ChangeNotifier {
         );
       }
     } catch (e) {
-      print("Error obteniendo nutrientes: $e");
+      // Error silencioso, el método devolverá null
     }
     return null;
   }
