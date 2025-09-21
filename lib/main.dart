@@ -1,3 +1,5 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -6,12 +8,18 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'package:msa/models/models.dart'; 
 import 'package:msa/providers/providers.dart';
+import 'package:msa/services/notification_service.dart';
 
 import 'package:msa/pantallas/pantallas.dart';
 import 'package:msa/pantallas/pantalla_principal.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  await FirebaseAppCheck.instance.activate(androidProvider: AndroidProvider.debug);
+
+  // Inicializar el servicio de notificaciones
+  await NotificationService().initialize();
 
   await Hive.initFlutter();
 
@@ -69,7 +77,7 @@ class AppState extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => DietaProvider()),
         ChangeNotifierProvider(create: (_) => InsigniaProvider()),
         ChangeNotifierProvider(create: (_) => RachaProvider()),
-        ChangeNotifierProvider(create: (_) => ConsumoProvider()), // ¡Corregido!
+        ChangeNotifierProvider(create: (_) => ConsumoProvider()),
 
         // Providers que dependen de otros (ProxyProviders)
         ChangeNotifierProxyProvider<FoodProvider, SyncProvider>(
