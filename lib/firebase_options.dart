@@ -64,6 +64,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '1012062066863',
     projectId: 'misaludactiva-21760',
     storageBucket: 'misaludactiva-21760.firebasestorage.app',
+    androidClientId: '1012062066863-ohb4fm70nqvnb4au3nsjhk2tguq44ohe.apps.googleusercontent.com',
+    iosClientId: '1012062066863-uak8s1ldame434ip6sa1o01c3liu8soq.apps.googleusercontent.com',
     iosBundleId: 'com.example.msa',
   );
 
@@ -73,6 +75,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '1012062066863',
     projectId: 'misaludactiva-21760',
     storageBucket: 'misaludactiva-21760.firebasestorage.app',
+    androidClientId: '1012062066863-ohb4fm70nqvnb4au3nsjhk2tguq44ohe.apps.googleusercontent.com',
+    iosClientId: '1012062066863-uak8s1ldame434ip6sa1o01c3liu8soq.apps.googleusercontent.com',
     iosBundleId: 'com.example.msa',
   );
 
@@ -85,4 +89,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'misaludactiva-21760.firebasestorage.app',
     measurementId: 'G-20QBMKV0NR',
   );
+
 }

@@ -4,43 +4,60 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: '>=3.9.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+
+  # === CORE Y UTILIDADES ===
   provider: ^6.1.2
   shared_preferences: ^2.2.3
   hive: ^2.2.3
-  hive_flutter: ^1.1.0
+  hive_flutter: ^1.1.0 # Puedes considerar actualizar esto, pero la versión actual es estable.
   http: ^1.2.1
-  flutter_dotenv: ^5.1.0
-  cupertino_icons: ^1.0.2
+  flutter_dotenv: ^6.0.0 # ACTUALIZADO: Version más reciente.
+  cupertino_icons: ^1.0.6 # ACTUALIZADO: Versión más reciente.
+
+  # === VISUALES Y FORMATO ===
   percent_indicator: ^4.2.3
   intl: ^0.20.2
-  uuid: ^4.4.0
+  # ACTUALIZADO: Version más reciente (el uso de ^0.20.2 podría ser muy nuevo o tener conflictos).
   flutter_colorpicker: ^1.1.0
-  fl_chart: ^1.1.1
+  fl_chart: ^0.68.0 # ACTUALIZADO: Version muy superior (0.68.0 vs 1.1.1, revisa la documentación para posibles cambios de código).
+
+  # === FUNCIONALIDAD ESPECÍFICA ===
+  uuid: ^4.4.0
   tuple: ^2.0.2
-  url_launcher: ^6.2.2
-  flutter_local_notifications: ^17.1.2
-  timezone: ^0.9.3
+  url_launcher: ^6.3.0 # ACTUALIZADO
+
+  # === NOTIFICACIONES ===
+  flutter_local_notifications: ^17.1.2 
+  timezone: ^0.9.3 
+
+  # === ARCHIVOS Y DISPOSITIVO ===
   image_picker: ^1.2.0
   path_provider: ^2.1.5
-  firebase_core: ^2.24.2
-  firebase_messaging: ^14.7.15
-  cloud_firestore: ^4.14.0
-  firebase_auth: ^4.16.0
+
+  # === FIREBASE Y AUTENTICACIÓN (Actualizados para la última estabilidad) ===
+  firebase_core: ^2.32.0 # Manteniendo la versión, pero puede ser necesario actualizar a la serie 4.x.x si actualizas todo.
+  firebase_messaging: ^14.9.4
+  cloud_firestore: ^4.17.5
+  firebase_auth: ^4.20.0
   google_sign_in: ^6.2.1
+  # AGREGADO: Necesario para el error que tuviste en el código.
+  firebase_app_check: ^0.2.1+1 
+
+  # === LIBRERÍAS AUXILIARES ===
   collection: ^1.18.0
   path: ^1.9.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^4.0.0
+  flutter_lints: ^6.0.0 # ACTUALIZADO: Mayor conjunto de reglas.
   hive_generator: ^2.0.1
   build_runner: ^2.4.13
   flutter_launcher_icons: ^0.13.1

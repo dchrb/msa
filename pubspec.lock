@@ -305,6 +305,30 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.9.3+4"
+  firebase_app_check:
+    dependency: "direct main"
+    description:
+      name: firebase_app_check
+      sha256: aac3b42cdf804b10cb1085c9902e5d1ef2f30e7cfc0c504e6f47519713d86829
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.2+7"
+  firebase_app_check_platform_interface:
+    dependency: transitive
+    description:
+      name: firebase_app_check_platform_interface
+      sha256: d0b9e4676ee7a272160b989a9a899d6469e336fe3624b3935cdae77a476f00d1
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.0+29"
+  firebase_app_check_web:
+    dependency: transitive
+    description:
+      name: firebase_app_check_web
+      sha256: f5359ba62111e4b28e5f1477b7c5c560dcfabe1ccc9e02e65ebdb428eda204ad
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.2+7"
   firebase_auth:
     dependency: "direct main"
     description:
@@ -389,10 +413,10 @@ packages:
     dependency: "direct main"
     description:
       name: fl_chart
-      sha256: "7ca9a40f4eb85949190e54087be8b4d6ac09dc4c54238d782a34cf1f7c011de9"
+      sha256: d0f0d49112f2f4b192481c16d05b6418bd7820e021e265a3c22db98acf7ed7fb
       url: "https://pub.dev"
     source: hosted
-    version: "1.1.1"
+    version: "0.68.0"
   flutter:
     dependency: "direct main"
     description: flutter
@@ -410,10 +434,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_dotenv
-      sha256: b7c7be5cd9f6ef7a78429cabd2774d3c4af50e79cb2b7593e3d5d763ef95c61b
+      sha256: d4130c4a43e0b13fefc593bc3961f2cb46e30cb79e253d4a526b1b5d24ae1ce4
       url: "https://pub.dev"
     source: hosted
-    version: "5.2.1"
+    version: "6.0.0"
   flutter_launcher_icons:
     dependency: "direct dev"
     description:
@@ -426,10 +450,10 @@ packages:
     dependency: "direct dev"
     description:
       name: flutter_lints
-      sha256: "3f41d009ba7172d5ff9be5f6e6e6abb4300e263aab8866d2a0842ed2a70f8f0c"
+      sha256: "3105dc8492f6183fb076ccf1f351ac3d60564bff92e20bfc4af9cc1651f4e7e1"
       url: "https://pub.dev"
     source: hosted
-    version: "4.0.0"
+    version: "6.0.0"
   flutter_local_notifications:
     dependency: "direct main"
     description:
@@ -729,10 +753,10 @@ packages:
     dependency: transitive
     description:
       name: lints
-      sha256: "976c774dd944a42e83e2467f4cc670daef7eed6295b10b36ae8c85bcbf828235"
+      sha256: a5e2b223cb7c9c8efdc663ef484fdd95bb243bff242ef5b13e26883547fce9a0
       url: "https://pub.dev"
     source: hosted
-    version: "4.0.0"
+    version: "6.0.0"
   logging:
     dependency: transitive
     description:

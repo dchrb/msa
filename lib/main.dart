@@ -5,55 +5,70 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-import 'package:msa/models/models.dart'; 
+import 'package:msa/models/models.dart';
 import 'package:msa/providers/providers.dart';
 import 'package:msa/services/notification_service.dart';
 
 import 'package:msa/pantallas/pantallas.dart';
 import 'package:msa/pantallas/pantalla_principal.dart';
+import 'firebase_options.dart'; // <-- Importa las opciones de Firebase
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  await FirebaseAppCheck.instance.activate(androidProvider: AndroidProvider.debug);
 
-  // Inicializar el servicio de notificaciones
-  await NotificationService().initialize();
+  // Cargar variables de entorno antes de inicializar providers
+  await dotenv.load(fileName: ".env");
 
-  await Hive.initFlutter();
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions
+          .currentPlatform, // <-- Inicializa Firebase para web/móvil
+    );
+    await FirebaseAppCheck.instance.activate(
+      androidProvider: AndroidProvider.debug,
+    );
 
-  // Registro de todos los adaptadores
-  Hive.registerAdapter(MedidaAdapter());
-  Hive.registerAdapter(PlatoAdapter());
-  Hive.registerAdapter(AlimentoAdapter());
-  Hive.registerAdapter(TipoPlatoAdapter());
-  Hive.registerAdapter(EjercicioAdapter());
-  Hive.registerAdapter(SesionEntrenamientoAdapter());
-  Hive.registerAdapter(AguaAdapter());
-  Hive.registerAdapter(RecetaAdapter());
-  Hive.registerAdapter(RecordatorioAdapter());
-  Hive.registerAdapter(ComidaPlanificadaAdapter());
-  Hive.registerAdapter(ProfileAdapter());
-  Hive.registerAdapter(SexoAdapter());
-  Hive.registerAdapter(NivelActividadAdapter());
-  Hive.registerAdapter(ComidaConsumidaAdapter());
-  Hive.registerAdapter(InsigniaAdapter());
-  Hive.registerAdapter(RachaAdapter());
+    // Inicializar el servicio de notificaciones
+    await NotificationService().initialize();
 
-  // Apertura de todas las cajas de Hive.
-  await Hive.openBox<Map>('food');
-  await Hive.openBox<Medida>('medidas');
-  await Hive.openBox<Ejercicio>('ejercicios');
-  await Hive.openBox<SesionEntrenamiento>('sesiones');
-  await Hive.openBox<Agua>('agua');
-  await Hive.openBox<Receta>('recetas');
-  await Hive.openBox<Recordatorio>('recordatorios');
-  await Hive.openBox<ComidaPlanificada>('dieta');
-  await Hive.openBox<Profile>('profile');
-  await Hive.openBox<Insignia>('insignias');
-  await Hive.openBox<Racha>('rachas');
-  await Hive.openBox<ComidaConsumida>('comidasConsumidasBox');
+    await Hive.initFlutter();
+
+    // Registro de todos los adaptadores
+    Hive.registerAdapter(MedidaAdapter());
+    Hive.registerAdapter(PlatoAdapter());
+    Hive.registerAdapter(AlimentoAdapter());
+    Hive.registerAdapter(TipoPlatoAdapter());
+    Hive.registerAdapter(EjercicioAdapter());
+    Hive.registerAdapter(SesionEntrenamientoAdapter());
+    Hive.registerAdapter(AguaAdapter());
+    Hive.registerAdapter(RecetaAdapter());
+    Hive.registerAdapter(RecordatorioAdapter());
+    Hive.registerAdapter(ComidaPlanificadaAdapter());
+    Hive.registerAdapter(ProfileAdapter());
+    Hive.registerAdapter(SexoAdapter());
+    Hive.registerAdapter(NivelActividadAdapter());
+    Hive.registerAdapter(ComidaConsumidaAdapter());
+    Hive.registerAdapter(InsigniaAdapter());
+    Hive.registerAdapter(RachaAdapter());
+
+    // Apertura de todas las cajas de Hive.
+    await Hive.openBox<Map>('food');
+    await Hive.openBox<Medida>('medidas');
+    await Hive.openBox<Ejercicio>('ejercicios');
+    await Hive.openBox<SesionEntrenamiento>('sesiones');
+    await Hive.openBox<Agua>('agua');
+    await Hive.openBox<Receta>('recetas');
+    await Hive.openBox<Recordatorio>('recordatorios');
+    await Hive.openBox<ComidaPlanificada>('dieta');
+    await Hive.openBox<Profile>('profile');
+    await Hive.openBox<Insignia>('insignias');
+    await Hive.openBox<Racha>('rachas');
+    await Hive.openBox<ComidaConsumida>('comidasConsumidasBox');
+  } catch (e) {
+    debugPrint('Error inicializando Firebase o Hive: $e');
+  }
 
   runApp(const AppState());
 }
@@ -65,7 +80,6 @@ class AppState extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // Providers independientes
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => ProfileProvider()),
         ChangeNotifierProvider(create: (_) => WaterProvider()),
@@ -78,12 +92,11 @@ class AppState extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => InsigniaProvider()),
         ChangeNotifierProvider(create: (_) => RachaProvider()),
         ChangeNotifierProvider(create: (_) => ConsumoProvider()),
-
-        // Providers que dependen de otros (ProxyProviders)
         ChangeNotifierProxyProvider<FoodProvider, SyncProvider>(
           create: (_) => SyncProvider(),
           update: (context, foodProvider, sync) {
-            sync?.updateDataProviders(
+            sync ??= SyncProvider();
+            sync.updateDataProviders(
               profileProvider: context.read<ProfileProvider>(),
               medidaProvider: context.read<MedidaProvider>(),
               foodProvider: foodProvider,
@@ -93,7 +106,7 @@ class AppState extends StatelessWidget {
               recordatorioProvider: context.read<RecordatorioProvider>(),
               dietaProvider: context.read<DietaProvider>(),
             );
-            return sync ?? SyncProvider();
+            return sync;
           },
         ),
       ],
@@ -128,9 +141,7 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('es', ''),
-      ],
+      supportedLocales: const [Locale('es', '')],
       home: const AuthWrapper(),
       debugShowCheckedModeBanner: false,
     );
@@ -146,12 +157,15 @@ class AuthWrapper extends StatelessWidget {
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
         }
 
         if (snapshot.hasData) {
           final user = snapshot.data!;
-          if (user.providerData.any((info) => info.providerId == 'password') && !user.emailVerified) {
+          if (user.providerData.any((info) => info.providerId == 'password') &&
+              !user.emailVerified) {
             return const PantallaVerificarEmail();
           }
           return const PantallaPrincipal();

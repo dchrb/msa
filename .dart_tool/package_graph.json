@@ -10,6 +10,7 @@
         "cloud_firestore",
         "collection",
         "cupertino_icons",
+        "firebase_app_check",
         "firebase_auth",
         "firebase_core",
         "firebase_messaging",
@@ -109,7 +110,7 @@
     },
     {
       "name": "flutter_lints",
-      "version": "4.0.0",
+      "version": "6.0.0",
       "dependencies": [
         "lints"
       ]
@@ -141,6 +142,17 @@
       "name": "collection",
       "version": "1.19.1",
       "dependencies": []
+    },
+    {
+      "name": "firebase_app_check",
+      "version": "0.2.2+7",
+      "dependencies": [
+        "firebase_app_check_platform_interface",
+        "firebase_app_check_web",
+        "firebase_core",
+        "firebase_core_platform_interface",
+        "flutter"
+      ]
     },
     {
       "name": "google_sign_in",
@@ -264,22 +276,6 @@
       "dependencies": []
     },
     {
-      "name": "fl_chart",
-      "version": "1.1.1",
-      "dependencies": [
-        "equatable",
-        "flutter",
-        "vector_math"
-      ]
-    },
-    {
-      "name": "flutter_colorpicker",
-      "version": "1.1.0",
-      "dependencies": [
-        "flutter"
-      ]
-    },
-    {
       "name": "uuid",
       "version": "4.5.1",
       "dependencies": [
@@ -287,6 +283,21 @@
         "fixnum",
         "meta",
         "sprintf"
+      ]
+    },
+    {
+      "name": "fl_chart",
+      "version": "0.68.0",
+      "dependencies": [
+        "equatable",
+        "flutter"
+      ]
+    },
+    {
+      "name": "flutter_colorpicker",
+      "version": "1.1.0",
+      "dependencies": [
+        "flutter"
       ]
     },
     {
@@ -312,7 +323,7 @@
     },
     {
       "name": "flutter_dotenv",
-      "version": "5.2.1",
+      "version": "6.0.0",
       "dependencies": [
         "flutter"
       ]
@@ -758,7 +769,7 @@
     },
     {
       "name": "lints",
-      "version": "4.0.0",
+      "version": "6.0.0",
       "dependencies": []
     },
     {
@@ -824,6 +835,41 @@
       ]
     },
     {
+      "name": "firebase_core_platform_interface",
+      "version": "5.4.2",
+      "dependencies": [
+        "collection",
+        "flutter",
+        "flutter_test",
+        "meta",
+        "plugin_platform_interface"
+      ]
+    },
+    {
+      "name": "firebase_app_check_web",
+      "version": "0.1.2+7",
+      "dependencies": [
+        "_flutterfire_internals",
+        "firebase_app_check_platform_interface",
+        "firebase_core",
+        "firebase_core_web",
+        "flutter",
+        "flutter_web_plugins",
+        "web"
+      ]
+    },
+    {
+      "name": "firebase_app_check_platform_interface",
+      "version": "0.1.0+29",
+      "dependencies": [
+        "_flutterfire_internals",
+        "firebase_core",
+        "flutter",
+        "meta",
+        "plugin_platform_interface"
+      ]
+    },
+    {
       "name": "google_sign_in_web",
       "version": "0.12.4+4",
       "dependencies": [
@@ -857,17 +903,6 @@
       "dependencies": [
         "flutter",
         "google_sign_in_platform_interface"
-      ]
-    },
-    {
-      "name": "firebase_core_platform_interface",
-      "version": "5.4.2",
-      "dependencies": [
-        "collection",
-        "flutter",
-        "flutter_test",
-        "meta",
-        "plugin_platform_interface"
       ]
     },
     {
@@ -1150,14 +1185,6 @@
       ]
     },
     {
-      "name": "equatable",
-      "version": "2.0.7",
-      "dependencies": [
-        "collection",
-        "meta"
-      ]
-    },
-    {
       "name": "fixnum",
       "version": "1.1.1",
       "dependencies": []
@@ -1166,6 +1193,14 @@
       "name": "sprintf",
       "version": "7.0.0",
       "dependencies": []
+    },
+    {
+      "name": "equatable",
+      "version": "2.0.7",
+      "dependencies": [
+        "collection",
+        "meta"
+      ]
     },
     {
       "name": "web",
@@ -1383,11 +1418,10 @@
       ]
     },
     {
-      "name": "google_identity_services_web",
-      "version": "0.3.3+1",
+      "name": "plugin_platform_interface",
+      "version": "2.1.8",
       "dependencies": [
-        "meta",
-        "web"
+        "meta"
       ]
     },
     {
@@ -1395,13 +1429,6 @@
       "version": "0.0.0",
       "dependencies": [
         "flutter"
-      ]
-    },
-    {
-      "name": "plugin_platform_interface",
-      "version": "2.1.8",
-      "dependencies": [
-        "meta"
       ]
     },
     {
@@ -1413,6 +1440,14 @@
         "firebase_core_platform_interface",
         "flutter",
         "meta"
+      ]
+    },
+    {
+      "name": "google_identity_services_web",
+      "version": "0.3.3+1",
+      "dependencies": [
+        "meta",
+        "web"
       ]
     },
     {
